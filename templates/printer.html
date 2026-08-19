@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Printer Scanner Interface</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .scanner-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .scanner-preview {
+            border: 2px dashed #ccc;
+            min-height: 300px;
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .scanner-preview img {
+            max-width: 100%;
+            max-height: 400px;
+        }
+        .model-selector {
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container scanner-container">
+        <h1>Printer Scanner Interface</h1>
+        
+        <div class="model-selector">
+            <label for="model_type">Select Analysis Model:</label>
+            <select id="model_type">
+                <option value="lung_cancer_xray">Lung Cancer (X-Ray)</option>
+                <option value="lung_cancer_histo">Lung Cancer (Histopathological)</option>
+                <option value="malaria">Malaria</option>
+            </select>
+        </div>
+        
+        <input type="file" id="scannerInput" accept="image/*" capture="scanner">
+        
+        <div class="scanner-preview" id="preview">
+            <p>No image selected</p>
+        </div>
+        
+        <button id="analyzeBtn" class="btn">Analyze Image</button>
+        
+        <div id="results" style="margin-top: 20px;"></div>
+    </div>
+
+    <script>
+        const scannerInput = document.getElementById('scannerInput');
+        const preview = document.getElementById('preview');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const resultsDiv = document.getElementById('results');
+        const modelType = document.getElementById('model_type');
+        
+        scannerInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    preview.innerHTML = `<img src="${event.target.result}" alt="Scanned Image">`;
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        analyzeBtn.addEventListener('click', async function() {
+            const file = scannerInput.files[0];
+            if (!file) {
+                alert('Please select an image first');
+                return;
+            }
+            
+            analyzeBtn.disabled = true;
+            analyzeBtn.textContent = 'Analyzing...';
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('model_type', modelType.value);
+            
+            try {
+                const response = await fetch('/api/process_scan', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    resultsDiv.innerHTML = `
+                        <div class="result-box">
+                            <h3>Analysis Results</h3>
+                            <p><strong>Prediction:</strong> ${data.prediction}</p>
+                            <p><strong>Confidence:</strong> ${(data.confidence * 100).toFixed(2)}%</p>
+                            <img src="${data.image_path}" alt="Processed Image" style="max-width: 300px;">
+                        </div>
+                    `;
+                } else {
+                    resultsDiv.innerHTML = `<p class="error">Error: ${data.message}</p>`;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="error">Network error: ${error.message}</p>`;
+            } finally {
+                analyzeBtn.disabled = false;
+                analyzeBtn.textContent = 'Analyze Image';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Covid Chest X-Ray Detection</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Times New Roman', serif;
+            background: linear-gradient(135deg, #f8f5f0 0%, #e8ddd4 100%);
+            color: #2c3e50;
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            padding: 40px;
+            border: 2px solid #e8ddd4;
+        }
+
+        h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            text-align: center;
+            margin-bottom: 30px;
+            font-family: 'Georgia', serif;
+            border-bottom: 3px solid #d4af37;
+            padding-bottom: 15px;
+        }
+
+        .classes-info {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .class-tag {
+            background: linear-gradient(135deg, #d4af37 0%, #b8860b 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+            box-shadow: 0 3px 10px rgba(212,175,55,0.3);
+            border: 2px solid #d4af37;
+        }
+
+        #uploadForm {
+            background: #f8f5f0;
+            padding: 30px;
+            border-radius: 15px;
+            border: 2px solid #e8ddd4;
+            margin-bottom: 30px;
+        }
+
+        .file-input-display {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        #fileName {
+            flex: 1;
+            padding: 12px 15px;
+            background: white;
+            border: 2px solid #e8ddd4;
+            border-radius: 8px;
+            color: #7f8c8d;
+            font-style: italic;
+            min-width: 200px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #d4af37 0%, #b8860b 100%);
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid #d4af37;
+            text-decoration: none;
+            display: inline-block;
+            font-family: 'Times New Roman', serif;
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, #b8860b 0%, #8b6914 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(212,175,55,0.4);
+        }
+
+        input[type="submit"] {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            border-color: #27ae60;
+            width: 100%;
+            padding: 15px;
+            font-size: 1.1em;
+            margin-top: 10px;
+        }
+
+        input[type="submit"]:hover {
+            background: linear-gradient(135deg, #229954 0%, #27ae60 100%);
+            box-shadow: 0 8px 20px rgba(39,174,96,0.4);
+        }
+
+        .scanner-section {
+            background: #f8f5f0;
+            padding: 25px;
+            border-radius: 15px;
+            border: 2px solid #e8ddd4;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .scanner-section h3 {
+            color: #2c3e50;
+            font-size: 1.4em;
+            margin-bottom: 15px;
+            font-family: 'Georgia', serif;
+        }
+
+        .scanner-btn {
+            background: linear-gradient(135deg, #8e44ad 0%, #9b59b6 100%);
+            border-color: #8e44ad;
+        }
+
+        .scanner-btn:hover {
+            background: linear-gradient(135deg, #732d91 0%, #8e44ad 100%);
+            box-shadow: 0 8px 20px rgba(142,68,173,0.4);
+        }
+
+        #scannerPreview {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            border: 1px solid #e8ddd4;
+            min-height: 50px;
+        }
+
+        .result-box {
+            text-align: left;
+            padding: 20px;
+            background: rgba(39, 174, 96, 0.1);
+            border-left: 4px solid #27ae60;
+            border-radius: 8px;
+        }
+
+        .result-box strong {
+            color: #2c3e50;
+        }
+
+        .result-box img {
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border: 2px solid #e8ddd4;
+        }
+
+        .error {
+            color: #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+            border-left: 4px solid #e74c3c;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .navigation-section {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .back {
+            background: linear-gradient(135deg, #7f8c8d 0%, #95a5a6 100%);
+            border-color: #7f8c8d;
+        }
+
+        .back:hover {
+            background: linear-gradient(135deg, #6c7b7d 0%, #7f8c8d 100%);
+            box-shadow: 0 8px 20px rgba(127,140,141,0.4);
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            .file-input-display {
+                flex-direction: column;
+            }
+
+            #fileName {
+                min-width: auto;
+                width: 100%;
+            }
+
+            .navigation-section {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Covid Chest X-Ray Detection</h1>
+        <div class="classes-info">
+            <span class="class-tag">Covid</span>
+            <span class="class-tag">Viral Pneumonia</span>
+            <span class="class-tag">Normal</span>
+        </div>
+        
+        <form id="uploadForm" action="{{ url_for('upload_file', model_type='covid_xray') }}" method="post" enctype="multipart/form-data">
+            <input type="file" id="fileInput" name="file" accept="image/*" style="display: none;">
+            <div class="file-input-display">
+                <span id="fileName">No file chosen</span>
+                <button type="button" class="btn" onclick="document.getElementById('fileInput').click()">Choose File</button>
+            </div>
+            <input type="submit" value="Upload Image" class="btn">
+        </form>
+        
+        <div class="scanner-section">
+            <h3>Or scan directly from printer:</h3>
+            <button id="scannerBtn" class="btn scanner-btn">Scan from Printer</button>
+            <div id="scannerPreview" style="margin-top: 10px;"></div>
+        </div>
+        
+        <div class="navigation-section">
+            <a href="{{ url_for('camera', model_type='covid_xray') }}" class="btn">Open Camera</a>
+            <a href="{{ url_for('home') }}" class="btn back">Back to Home</a>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const fileName = e.target.files[0] ? e.target.files[0].name : 'No file chosen';
+            document.getElementById('fileName').textContent = fileName;
+        });
+
+        document.getElementById('scannerBtn').addEventListener('click', async function() {
+            const scannerInput = document.createElement('input');
+            scannerInput.type = 'file';
+            scannerInput.accept = 'image/*';
+            scannerInput.capture = 'scanner';
+            
+            scannerInput.addEventListener('change', async function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const preview = document.getElementById('scannerPreview');
+                preview.innerHTML = '<p style="color: #d4af37; font-style: italic;">Processing scan...</p>';
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('model_type', 'covid_xray');
+                
+                try {
+                    const response = await fetch('/api/process_scan', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result['status'] === 'success') {
+                        preview.innerHTML = `
+                            <div class="result-box">
+                                <p><strong>Result:</strong> ${result.prediction}</p>
+                                <p><strong>Confidence:</strong> ${(result.confidence * 100).toFixed(2)}%</p>
+                                <img src="${result.image_path}" style="max-width: 100%; margin-top: 10px;">
+                            </div>
+                        `;
+                    } else {
+                        preview.innerHTML = `<p class="error">Error: ${result.message}</p>`;
+                    }
+                } catch (error) {
+                    preview.innerHTML = `<p class="error">Error processing scan: ${error.message}</p>`;
+                }
+            });
+            
+            scannerInput.click();
+        });
+    </script>
+</body>
+</html>

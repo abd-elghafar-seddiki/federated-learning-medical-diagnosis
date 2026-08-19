@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Image Analysis</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Times New Roman', serif;
+            background: linear-gradient(135deg, #f8f5f0 0%, #e8ddd4 100%);
+            color: #2c3e50;
+            line-height: 1.6;
+        }
+
+        /* Top Navigation Bar */
+        .top-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+            padding: 15px 40px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-container img {
+            height: 50px;
+            width: auto;
+            max-width: 50px;
+            border-radius: 8px;
+            border: 2px solid #d4af37;
+            object-fit: cover;
+            object-position: center;
+        }
+
+        .logo-container span {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #d4af37;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .top-nav ul {
+            display: flex;
+            list-style: none;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .top-nav ul li {
+            color: #ecf0f1;
+            font-weight: 500;
+        }
+
+        .top-nav ul li a {
+            text-decoration: none;
+            color: #ecf0f1;
+            padding: 10px 18px;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+        }
+
+        .top-nav ul li a:hover {
+            background-color: #d4af37;
+            color: #2c3e50;
+            border-color: #d4af37;
+        }
+
+        /* Hero Section */
+        .hero-section {
+            display: flex;
+            height: 350px;
+            position: relative;
+            margin: 20px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+
+        .hero-section .left,
+        .hero-section .right {
+            flex: 1;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            transition: transform 0.5s ease;
+            min-height: 350px;
+        }
+
+        .hero-section .left {
+            background-image: url('{{ url_for("static", filename="image/images (8).jfif") }}');
+        }
+
+        .hero-section .right {
+            background-image: url('{{ url_for("static", filename="image/images (14).png") }}');
+        }
+
+        .hero-section:hover .left {
+            transform: scale(1.05);
+        }
+
+        .hero-section:hover .right {
+            transform: scale(1.05);
+        }
+
+        .hero-section::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 3px;
+            background: linear-gradient(to bottom, #d4af37, #b8860b, #d4af37);
+            z-index: 1;
+            box-shadow: 0 0 10px rgba(212,175,55,0.5);
+        }
+
+        .hero-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 1.8em;
+            font-weight: bold;
+            text-align: center;
+            background: rgba(44, 62, 80, 0.85);
+            padding: 20px 30px;
+            border-radius: 15px;
+            border: 2px solid #d4af37;
+            z-index: 2;
+            max-width: 85%;
+            backdrop-filter: blur(10px);
+            animation: fadeInUp 1s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -30%);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%);
+            }
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1400px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .models-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .model-card {
+            background: #fff;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: all 0.4s ease;
+            position: relative;
+            border: 1px solid #e8ddd4;
+        }
+
+        .model-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        }
+
+        .card-image {
+            height: 200px;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-image::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(44, 62, 80, 0.7) 0%, rgba(212, 175, 55, 0.3) 100%);
+        }
+
+        .lung-cancer-xray .card-image { 
+            background-image: url('{{ url_for("static", filename="image/images (15).jpg") }}'); 
+        }
+        .lung-cancer-histo .card-image { 
+            background-image: url('{{ url_for("static", filename="image/images (27).jfif") }}'); 
+        }
+        .malaria .card-image { 
+            background-image: url('{{ url_for("static", filename="image/images (2).jfif") }}'); 
+        }
+        .retinal-oct .card-image { 
+            background-image: url('{{ url_for("static", filename="image/images (3).jfif") }}'); 
+        }
+        .diabetic-retinopathy .card-image { 
+            background-image: url('{{ url_for("static", filename="image/images (18).jpg") }}'); 
+        }
+        .brain-tumor .card-image { 
+            background-image: url('{{ url_for("static", filename="image/images (4).jfif") }}'); 
+        }
+        .covid-xray .card-image { 
+            background-image: url('{{ url_for("static", filename="image/images (16).jfif") }}'); 
+        }
+
+        .card-content {
+            padding: 25px;
+        }
+
+        .model-card h2 {
+            color: #2c3e50;
+            font-size: 1.4em;
+            margin-bottom: 12px;
+            font-family: 'Georgia', serif;
+        }
+
+        .model-card p {
+            color: #7f8c8d;
+            margin-bottom: 15px;
+            font-size: 1em;
+        }
+
+        .update-info {
+            color: #95a5a6;
+            font-size: 0.9em;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #d4af37 0%, #b8860b 100%);
+            color: white;
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            border: 2px solid #d4af37;
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, #b8860b 0%, #8b6914 100%);
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(212,175,55,0.4);
+        }
+
+        /* Hospitals Section */
+        .hospitals-section {
+            max-width: 1400px;
+            margin: 60px auto;
+            padding: 0 20px;
+            position: relative;
+        }
+
+        .hospitals-title {
+            text-align: center;
+            font-size: 1.2em;
+            color: #2c3e50;
+            margin-bottom: 40px;
+            font-family: 'Times New Roman', serif;
+            background: #fff;
+            padding: 20px 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border: 2px solid #d4af37;
+            line-height: 1.6;
+            font-weight: normal;
+        }
+
+        .hospitals-slider {
+            position: relative;
+            height: 500px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+
+        .hospital-slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+        }
+
+        .hospital-slide.active {
+            opacity: 1;
+        }
+
+        .hospital-image {
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            position: relative;
+        }
+
+        /* Hospital Backgrounds */
+        .hospital-slide:nth-child(1) .hospital-image {
+            background-image: url('{{ url_for("static", filename="image/images (Hospital 1).jpg") }}');
+        }
+        .hospital-slide:nth-child(2) .hospital-image {
+            background-image: url('{{ url_for("static", filename="image/images (Hospital 2).jpg") }}');
+        }
+        .hospital-slide:nth-child(3) .hospital-image {
+            background-image: url('{{ url_for("static", filename="image/images (Hospital 3).jpg") }}');
+        }
+        .hospital-slide:nth-child(4) .hospital-image {
+            background-image: url('{{ url_for("static", filename="image/images (Hospital 4).jpg") }}');
+        }
+        .hospital-slide:nth-child(5) .hospital-image {
+            background-image: url('{{ url_for("static", filename="image/images (Hospital 5).jpg") }}');
+        }
+        .hospital-slide:nth-child(6) .hospital-image {
+            background-image: url('{{ url_for("static", filename="image/images (Hospital 6).jpg") }}');
+        }
+        .hospital-slide:nth-child(7) .hospital-image {
+            background-image: url('{{ url_for("static", filename="image/images (Hospital 7).jpg") }}');
+        }
+        .hospital-slide:nth-child(8) .hospital-image {
+            background-image: url('{{ url_for("static", filename="image/images (Hospital 8).png") }}');
+        }
+        .hospital-slide:nth-child(9) .hospital-image {
+            background-image: url('{{ url_for("static", filename="image/images (Hospital 9).jpg") }}');
+        }
+        .hospital-slide:nth-child(10) .hospital-image {
+            background-image: url('{{ url_for("static", filename="image/images (Hospital 10).jpg") }}');
+        }
+        .hospital-slide:nth-child(11) .hospital-image {
+            background-image: url('{{ url_for("static", filename="image/images (Hospital 11).jfif") }}');
+        }
+        .hospital-slide:nth-child(12) .hospital-image {
+            background-image: url('{{ url_for("static", filename="image/images (Hospital 12).jpg") }}');
+        }
+        .hospital-slide:nth-child(13) .hospital-image {
+            background-image: url('{{ url_for("static", filename="image/images (Hospital 13).jfif") }}');
+        }
+        .hospital-slide:nth-child(14) .hospital-image {
+            background-image: url('{{ url_for("static", filename="image/images (Hospital 14).jfif") }}');
+        }
+        .hospital-slide:nth-child(15) .hospital-image {
+            background-image: url('{{ url_for("static", filename="image/images (Hospital 15).jpg") }}');
+        }
+        .hospital-slide:nth-child(16) .hospital-image {
+            background-image: url('{{ url_for("static", filename="image/images (Hospital 16).jfif") }}');
+        }
+        .hospital-slide:nth-child(17) .hospital-image {
+            background-image: url('{{ url_for("static", filename="image/images (Hospital 17).jfif") }}');
+        }
+        .hospital-slide:nth-child(18) .hospital-image {
+            background-image: url('{{ url_for("static", filename="image/images (Hospital 18).jpg") }}');
+        }
+        .hospital-slide:nth-child(19) .hospital-image {
+            background-image: url('{{ url_for("static", filename="image/images (Hospital 19).jpg") }}');
+        }
+        .hospital-slide:nth-child(20) .hospital-image {
+            background-image: url('{{ url_for("static", filename="image/images (Hospital 20).jpg") }}');
+        }
+
+        .hospital-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.2) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .hospital-content {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 800px;
+            text-align: center;
+            border: 2px solid #d4af37;
+            backdrop-filter: blur(5px);
+            animation: fadeInUp 1s ease-out;
+        }
+
+        .hospital-content h3 {
+            color: #ffffff;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            font-family: 'Georgia', serif;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        .hospital-details p {
+            color: #ffffff;
+            margin-bottom: 15px;
+            line-height: 1.6;
+            font-size: 1em;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+        }
+
+        .hospital-details p strong {
+            color: #d4af37;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        .hospitals-navigation {
+            position: absolute;
+            top: 50%;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 10;
+        }
+
+        .nav-btn {
+            background: rgba(212, 175, 55, 0.9);
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            font-size: 1.5em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .nav-btn:hover {
+            background: #b8860b;
+            transform: scale(1.1);
+        }
+
+        .hospitals-dots {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #bdc3c7;
+            margin: 0 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .dot.active,
+        .dot:hover {
+            background-color: #d4af37;
+            transform: scale(1.2);
+        }
+
+        /* Information Sections */
+        .info-section {
+            max-width: 1400px;
+            margin: 60px auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            padding: 0 20px;
+        }
+
+        .info-card {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            transition: all 0.4s ease;
+            border: 1px solid #e8ddd4;
+        }
+
+        .info-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+        }
+
+        .info-image {
+            height: 220px;
+            overflow: hidden;
+        }
+
+        .info-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            transition: transform 0.4s ease;
+        }
+
+        .info-card:hover .info-image img {
+            transform: scale(1.1);
+        }
+
+        .info-content {
+            padding: 25px;
+        }
+
+        .info-content h3 {
+            color: #2c3e50;
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            font-family: 'Georgia', serif;
+        }
+
+        .info-content p {
+            color: #7f8c8d;
+            line-height: 1.7;
+        }
+
+        /* Startup Section */
+        .startup-section {
+            max-width: 1000px;
+            margin: 60px auto;
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            border: 1px solid #e8ddd4;
+            animation: slideInUp 0.8s ease-out;
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .startup-logo img {
+            height: 70px;
+            max-width: 70px;
+            width: auto;
+            border-radius: 10px;
+            border: 2px solid #d4af37;
+            margin-bottom: 20px;
+            object-fit: cover;
+            object-position: center;
+        }
+
+        .startup-title {
+            color: #2c3e50;
+            font-size: 2em;
+            margin-bottom: 25px;
+            font-family: 'Georgia', serif;
+            border-bottom: 2px solid #d4af37;
+            padding-bottom: 10px;
+        }
+
+        .startup-details h3 {
+            color: #34495e;
+            margin: 20px 0 10px 0;
+            font-size: 1.2em;
+        }
+
+        .startup-details p {
+            color: #7f8c8d;
+            margin-bottom: 8px;
+            line-height: 1.6;
+        }
+
+        .author-info {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid #e8ddd4;
+        }
+
+        .author-info p {
+            color: #2c3e50;
+            font-weight: 500;
+        }
+
+        /* Additional Effects */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* Remove hover animation for hero-text */
+
+        /* Footer Styles */
+        .footer-section {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: #ecf0f1;
+            padding: 60px 0 20px;
+            margin-top: 80px;
+        }
+
+        .footer-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .project-features {
+            margin-bottom: 60px;
+        }
+
+        .features-title {
+            text-align: center;
+            font-size: 2.5em;
+            color: #d4af37;
+            margin-bottom: 40px;
+            font-family: 'Georgia', serif;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .feature-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            border: 2px solid #d4af37;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .feature-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(212, 175, 55, 0.3);
+        }
+
+        .feature-icon {
+            font-size: 3em;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .feature-item h3 {
+            color: #d4af37;
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            font-family: 'Georgia', serif;
+        }
+
+        .feature-item p {
+            color: #bdc3c7;
+            line-height: 1.6;
+            font-size: 1em;
+        }
+
+        .footer-content {
+            margin-bottom: 40px;
+        }
+
+        .social-media {
+            text-align: center;
+        }
+
+        .social-media h3 {
+            color: #d4af37;
+            font-size: 1.5em;
+            margin-bottom: 25px;
+            font-family: 'Georgia', serif;
+        }
+
+        .social-links {
+            display: flex;
+            justify-content: center;
+            flex-wrap: nowrap;
+            gap: 15px;
+            padding: 10px 0;
+            overflow-x: auto;
+            max-width: 100%;
+        }
+
+        .social-links::-webkit-scrollbar {
+            display: none;
+        }
+
+        .social-links {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .social-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 25px;
+            text-decoration: none;
+            color: #ecf0f1;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+            flex: 0 0 auto;
+            white-space: nowrap;
+        }
+
+        .social-link:hover {
+            background: #d4af37;
+            color: #2c3e50;
+            transform: translateY(-2px);
+            border-color: #d4af37;
+        }
+
+        .social-link img {
+            width: 24px;
+            height: 24px;
+            max-width: 24px;
+            border-radius: 4px;
+            object-fit: cover;
+            object-position: center;
+        }
+
+        .social-link span {
+            font-weight: 500;
+        }
+
+        .footer-bottom {
+            text-align: center;
+            padding-top: 30px;
+            border-top: 1px solid #d4af37;
+            margin-top: 40px;
+        }
+
+        .footer-bottom p {
+            color: #bdc3c7;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+
+        /* Responsive Footer */
+        @media (max-width: 768px) {
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .social-links {
+                justify-content: flex-start;
+            }
+
+            .features-title {
+                font-size: 2em;
+            }
+        }
+
+        /* Responsiveness for Small Screens */
+        @media (max-width: 768px) {
+            .top-nav {
+                flex-direction: column;
+                gap: 15px;
+                padding: 20px;
+            }
+
+            .logo-container img {
+                height: 40px;
+                max-width: 40px;
+            }
+
+            .logo-container span {
+                font-size: 1.2em;
+            }
+
+            .top-nav ul {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .hero-section {
+                flex-direction: column;
+                height: auto;
+                min-height: 300px;
+                margin: 10px;
+            }
+
+            .hero-section .left,
+            .hero-section .right {
+                min-height: 150px;
+            }
+
+            .hero-text {
+                font-size: 1.4em;
+                padding: 15px 20px;
+            }
+
+            .models-container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .card-image {
+                height: 150px;
+            }
+
+            .hospitals-title {
+                font-size: 1em;
+                padding: 15px 20px;
+            }
+
+            .hospitals-slider {
+                height: 400px;
+            }
+
+            .hospital-content {
+                padding: 20px;
+                max-width: 90%;
+            }
+
+            .hospital-content h3 {
+                font-size: 1.4em;
+            }
+
+            .nav-btn {
+                width: 40px;
+                height: 40px;
+                font-size: 1.2em;
+            }
+
+            .startup-section {
+                margin: 30px 10px;
+                padding: 25px;
+            }
+
+            .startup-logo img {
+                height: 50px;
+                max-width: 50px;
+            }
+
+            .info-image {
+                height: 180px;
+            }
+        }
+
+        /* Extra small screens */
+        @media (max-width: 480px) {
+            .hero-section {
+                height: auto;
+                min-height: 250px;
+            }
+
+            .hero-section .left,
+            .hero-section .right {
+                min-height: 125px;
+            }
+
+            .hero-text {
+                font-size: 1.2em;
+                padding: 12px 16px;
+            }
+
+            .card-image {
+                height: 120px;
+            }
+
+            .hospitals-slider {
+                height: 350px;
+            }
+
+            .hospital-content {
+                padding: 15px;
+            }
+
+            .hospital-content h3 {
+                font-size: 1.2em;
+            }
+
+            .info-image {
+                height: 150px;
+            }
+
+            .startup-logo img {
+                height: 40px;
+                max-width: 40px;
+            }
+
+            .hospitals-title {
+                font-size: 0.9em;
+                padding: 12px 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <nav class="top-nav">
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='image/loge.jpeg') }}" alt="Logo">
+            <span>High-quality disease detection</span>
+        </div>
+        <ul>
+            <li>Medical Image Analysis</li>
+            <li>Welcome, {{ session.user_name }}</li>
+            <li><a href="{{ url_for('profile') }}">My Profile</a></li>
+            {% if session.user_role == 3 %}
+                <li><a href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a></li>
+            {% endif %}
+            <li><a href="{{ url_for('logout') }}">Logout</a></li>
+        </ul>
+    </nav>
+
+    <!-- Background Images -->
+    <div class="hero-section">
+        <div class="left"></div>
+        <div class="right"></div>
+        <div class="hero-text">
+            Federated Learning for Privacy-Preserving Disease Prediction in Healthcare System
+        </div>
+    </div>
+
+    <!-- Models Content -->
+    <div class="container">
+        <div class="models-container">
+            <div class="model-card lung-cancer-xray">
+                <div class="card-image"></div>
+                <div class="card-content">
+                    <h2>Lung Cancer (X-Ray)</h2>
+                    <p>Detect lung cancer from X-Ray images</p>
+                    {% if model_updates['lung_cancer_xray'] %}
+                    <div class="update-info">Last updated: {{ model_updates['lung_cancer_xray'] }}</div>
+                    {% endif %}
+                    <a href="/lung_cancer_xray" class="btn">Go to Model</a>
+                </div>
+            </div>
+            
+            <div class="model-card lung-cancer-histo">
+                <div class="card-image"></div>
+                <div class="card-content">
+                    <h2>Lung Cancer (Histopathological)</h2>
+                    <p>Detect lung cancer from histopathological images</p>
+                    {% if model_updates['lung_cancer_histo'] %}
+                    <div class="update-info">Last updated: {{ model_updates['lung_cancer_histo'] }}</div>
+                    {% endif %}
+                    <a href="/lung_cancer_histo" class="btn">Go to Model</a>
+                </div>
+            </div>
+            
+            <div class="model-card malaria">
+                <div class="card-image"></div>
+                <div class="card-content">
+                    <h2>Malaria Detection</h2>
+                    <p>Detect malaria from blood cell images</p>
+                    {% if model_updates['malaria'] %}
+                    <div class="update-info">Last updated: {{ model_updates['malaria'] }}</div>
+                    {% endif %}
+                    <a href="/malaria" class="btn">Go to Model</a>
+                </div>
+            </div>
+            
+            <div class="model-card retinal-oct">
+                <div class="card-image"></div>
+                <div class="card-content">
+                    <h2>Retinal OCT</h2>
+                    <p>Classify retinal OCT images</p>
+                    {% if model_updates['retinal_oct'] %}
+                    <div class="update-info">Last updated: {{ model_updates['retinal_oct'] }}</div>
+                    {% endif %}
+                    <a href="/retinal_oct" class="btn">Go to Model</a>
+                </div>
+            </div>
+            
+            <div class="model-card diabetic-retinopathy">
+                <div class="card-image"></div>
+                <div class="card-content">
+                    <h2>Diabetic Retinopathy</h2>
+                    <p>Detect diabetic retinopathy</p>
+                    {% if model_updates['diabetic_retinopathy'] %}
+                    <div class="update-info">Last updated: {{ model_updates['diabetic_retinopathy'] }}</div>
+                    {% endif %}
+                    <a href="/diabetic_retinopathy" class="btn">Go to Model</a>
+                </div>
+            </div>
+            
+            <div class="model-card brain-tumor">
+                <div class="card-image"></div>
+                <div class="card-content">
+                    <h2>Brain Tumor (MRI)</h2>
+                    <p>Detect brain tumors from MRI images</p>
+                    {% if model_updates['brain_tumor'] %}
+                    <div class="update-info">Last updated: {{ model_updates['brain_tumor'] }}</div>
+                    {% endif %}
+                    <a href="/brain_tumor" class="btn">Go to Model</a>
+                </div>
+            </div>
+            
+            <div class="model-card covid-xray">
+                <div class="card-image"></div>
+                <div class="card-content">
+                    <h2>COVID-19 X-Ray</h2>
+                    <p>Detect COVID-19 from chest X-Ray images</p>
+                    {% if model_updates['covid_xray'] %}
+                    <div class="update-info">Last updated: {{ model_updates['covid_xray'] }}</div>
+                    {% endif %}
+                    <a href="/covid_xray" class="btn">Go to Model</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top 20 Best Hospitals in Algeria -->
+    <div class="hospitals-section">
+        <h6 class="hospitals-title">The selection of the top 20 hospitals in Algeria for future use in training and clustering models using federated learning is driven by the diversity and abundance of available data. We currently use only low-resolution, non-clinical data downloaded from Kaggle and the US National Institutes of Health (NIH), which ensures no bias in our prediction models.</h6>
+        <div class="hospitals-slider">
+            <div class="hospital-slide active">
+                <div class="hospital-image">
+                    <div class="hospital-overlay">
+                        <div class="hospital-content">
+                            <h3>Mustapha Pasha University Hospital – Algiers</h3>
+                            <div class="hospital-details">
+                                <p><strong>Beds:</strong> 300+</p>
+                                <p>Mustapha Pasha is one of the largest hospitals in Algeria and serves as a leading healthcare institution in the country. Affiliated with the University of Algiers, it is a major teaching hospital for medical students and a center of medical research.</p>
+                                <p><strong>Specializations:</strong> Oncology, cardiology, neurology, and general surgery. Advanced diagnostic imaging (CT scans, MRIs, and ultrasounds). Emergency services and a fully-equipped ICU.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hospital-slide">
+                <div class="hospital-image">
+                    <div class="hospital-overlay">
+                        <div class="hospital-content">
+                            <h3>Algiers Cardiovascular Hospital – Algiers</h3>
+                            <div class="hospital-details">
+                                <p><strong>Beds:</strong> 120</p>
+                                <p>Specializing in cardiovascular health, this hospital is the top choice for heart patients in Algeria. It is known for its innovative treatments and advanced heart surgeries.</p>
+                                <p><strong>Specializations:</strong> Cardiology, heart surgery, angioplasty, and heart failure treatment. Diagnostic imaging including echocardiograms and angiograms. Post-operative rehabilitation and heart disease management.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hospital-slide">
+                <div class="hospital-image">
+                    <div class="hospital-overlay">
+                        <div class="hospital-content">
+                            <h3>Algerian Cancer Institute – Algiers</h3>
+                            <div class="hospital-details">
+                                <p><strong>Beds:</strong> 100</p>
+                                <p>The Algerian Cancer Institute is dedicated to the treatment of various forms of cancer. This specialized facility provides cutting-edge therapies and comprehensive care for cancer patients.</p>
+                                <p><strong>Specializations:</strong> Chemotherapy, radiation therapy, and immunotherapy. Surgery for cancer treatments and support for patients with terminal illnesses. Palliative care, counseling, and post-treatment rehabilitation.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hospital-slide">
+                <div class="hospital-image">
+                    <div class="hospital-overlay">
+                        <div class="hospital-content">
+                            <h3>El Harrach Hospital – Algiers</h3>
+                            <div class="hospital-details">
+                                <p><strong>Beds:</strong> 200</p>
+                                <p>El Harrach Hospital is well-known for offering high-quality emergency care and specialized services in pediatrics, gynecology, and orthopedics.</p>
+                                <p><strong>Specializations:</strong> General surgery, orthopedics, pediatric care, and gynecology. Diagnostic services including laboratory tests, X-rays, and ultrasound. Emergency services and outpatient care.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hospital-slide">
+                <div class="hospital-image">
+                    <div class="hospital-overlay">
+                        <div class="hospital-content">
+                            <h3>Blida University Hospital – Blida</h3>
+                            <div class="hospital-details">
+                                <p><strong>Beds:</strong> 250</p>
+                                <p>Located in the city of Blida, this university hospital offers comprehensive medical services, serving as a major teaching hospital in Algeria.</p>
+                                <p><strong>Specializations:</strong> Cardiology, neurology, general surgery, and pediatrics. Diagnostic imaging, including CT and MRI scans. Emergency and intensive care services.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hospital-slide">
+                <div class="hospital-image">
+                    <div class="hospital-overlay">
+                        <div class="hospital-content">
+                            <h3>Ain Taya University Hospital – Ain Taya</h3>
+                            <div class="hospital-details">
+                                <p><strong>Beds:</strong> 250</p>
+                                <p>This hospital offers a wide range of healthcare services and is recognized for its advanced capabilities in surgery and diagnostics. It is one of the largest medical facilities in the northern region of Algeria.</p>
+                                <p><strong>Specializations:</strong> Orthopedic surgery, neurosurgery, and pediatrics. General surgery, cardiac care, and diagnostic imaging. 24/7 emergency care and intensive care units.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hospital-slide">
+                <div class="hospital-image">
+                    <div class="hospital-overlay">
+                        <div class="hospital-content">
+                            <h3>Boudouaou General Hospital – Boumerdès</h3>
+                            <div class="hospital-details">
+                                <p><strong>Beds:</strong> 180</p>
+                                <p>Located in the Boumerdès region, Boudouaou General Hospital is a comprehensive healthcare provider with specialized care in general medicine, pediatrics, and surgical treatments.</p>
+                                <p><strong>Specializations:</strong> General medical care, surgical treatments, and pediatric care. Diagnostic services, including laboratory tests, and X-rays. Emergency medical services.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hospital-slide">
+                <div class="hospital-image">
+                    <div class="hospital-overlay">
+                        <div class="hospital-content">
+                            <h3>Tizi Ouzou University Hospital – Tizi Ouzou</h3>
+                            <div class="hospital-details">
+                                <p><strong>Beds:</strong> 250</p>
+                                <p>Located in the heart of the Kabylie region, this hospital provides top-tier care in cardiology, surgery, and pediatrics. It also plays a critical role in training healthcare professionals.</p>
+                                <p><strong>Specializations:</strong> Cardiology, general surgery, and pediatrics. Diagnostic imaging, laboratory tests, and 24/7 emergency services. Post-surgery care and rehabilitation.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hospital-slide">
+                <div class="hospital-image">
+                    <div class="hospital-overlay">
+                        <div class="hospital-content">
+                            <h3>Bechar Regional Hospital – Bechar</h3>
+                            <div class="hospital-details">
+                                <p><strong>Beds:</strong> 150</p>
+                                <p>This hospital serves the southern part of Algeria, providing essential services such as emergency care, general surgery, and pediatric treatments.</p>
+                                <p><strong>Specializations:</strong> Emergency care, general surgery, pediatrics, and gynecology. Diagnostic services and physical rehabilitation. Post-operative care and recovery services.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hospital-slide">
+                <div class="hospital-image">
+                    <div class="hospital-overlay">
+                        <div class="hospital-content">
+                            <h3>Chlef University Hospital – Chlef</h3>
+                            <div class="hospital-details">
+                                <p><strong>Beds:</strong> 200</p>
+                                <p>Serving the Chlef region, this hospital offers a broad range of medical services, from emergency care to specialized treatments in oncology and cardiology.</p>
+                                <p><strong>Specializations:</strong> Oncology, cardiology, and general surgery. Diagnostic services, including MRI, CT scans, and X-ray. Emergency and intensive care services.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hospital-slide">
+                <div class="hospital-image">
+                    <div class="hospital-overlay">
+                        <div class="hospital-content">
+                            <h3>Bordj Bou Arréridj Regional Hospital – Bordj Bou Arréridj</h3>
+                            <div class="hospital-details">
+                                <p><strong>Beds:</strong> 180</p>
+                                <p>Bordj Bou Arréridj Regional Hospital is renowned for its high-quality medical care in specialties such as cardiology, surgery, and pediatrics. It serves the local population with comprehensive healthcare services.</p>
+                                <p><strong>Specializations:</strong> Cardiology, general surgery, pediatrics, and gynecology. Diagnostic imaging services, including X-ray, CT, and MRI. Emergency care, post-operative recovery, and rehabilitation.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hospital-slide">
+                <div class="hospital-image">
+                    <div class="hospital-overlay">
+                        <div class="hospital-content">
+                            <h3>Saïda Regional Hospital – Saïda</h3>
+                            <div class="hospital-details">
+                                <p><strong>Beds:</strong> 160</p>
+                                <p>Located in the western part of Algeria, Saïda Regional Hospital is known for its specialized care in trauma, orthopedic treatments, and rehabilitation.</p>
+                                <p><strong>Specializations:</strong> Orthopedic surgery, trauma care, and neurology. Diagnostic imaging and laboratory services. Emergency services and post-treatment rehabilitation.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hospital-slide">
+                <div class="hospital-image">
+                    <div class="hospital-overlay">
+                        <div class="hospital-content">
+                            <h3>Biskra General Hospital – Biskra</h3>
+                            <div class="hospital-details">
+                                <p><strong>Beds:</strong> 200</p>
+                                <p>Biskra General Hospital offers a wide range of services and is one of the most important medical centers in the southeast region of Algeria. It provides specialized care for a variety of conditions.</p>
+                                <p><strong>Specializations:</strong> General surgery, cardiology, pediatrics, and urology. Advanced diagnostic imaging services and laboratory testing. Emergency care and intensive care services.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hospital-slide">
+                <div class="hospital-image">
+                    <div class="hospital-overlay">
+                        <div class="hospital-content">
+                            <h3>Annaba University Hospital – Annaba</h3>
+                            <div class="hospital-details">
+                                <p><strong>Beds:</strong> 300</p>
+                                <p>Annaba University Hospital is a leading medical center offering comprehensive healthcare services, particularly in surgical treatments and diagnostic imaging.</p>
+                                <p><strong>Specializations:</strong> Oncology, cardiology, pediatrics, and emergency care. Diagnostic imaging, including CT scans and MRI. General surgery, post-operative care, and rehabilitation.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hospital-slide">
+                <div class="hospital-image">
+                    <div class="hospital-overlay">
+                        <div class="hospital-content">
+                            <h3>Constantine University Hospital – Constantine</h3>
+                            <div class="hospital-details">
+                                <p><strong>Beds:</strong> 350</p>
+                                <p>Located in Constantine, this hospital offers high-quality healthcare services and is known for its advanced research and training programs in medical sciences.</p>
+                                <p><strong>Specializations:</strong> Cardiovascular care, neurology, and general surgery. Diagnostic services, including advanced imaging techniques. Intensive care services and rehabilitation.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hospital-slide">
+                <div class="hospital-image">
+                    <div class="hospital-overlay">
+                        <div class="hospital-content">
+                            <h3>Bouira General Hospital – Bouira</h3>
+                            <div class="hospital-details">
+                                <p><strong>Beds:</strong> 150</p>
+                                <p>Bouira General Hospital offers a broad range of medical services, from primary care to specialized surgeries, with a strong focus on patient comfort and well-being.</p>
+                                <p><strong>Specializations:</strong> General medicine, surgery, pediatrics, and obstetrics. Diagnostic imaging and laboratory tests. Emergency and rehabilitation services.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hospital-slide">
+                <div class="hospital-image">
+                    <div class="hospital-overlay">
+                        <div class="hospital-content">
+                            <h3>Tlemcen Regional Hospital – Tlemcen</h3>
+                            <div class="hospital-details">
+                                <p><strong>Beds:</strong> 200</p>
+                                <p>Serving the western region of Algeria, Tlemcen Regional Hospital provides a wide variety of healthcare services, including emergency care, surgery, and cardiology.</p>
+                                <p><strong>Specializations:</strong> Emergency care, general surgery, cardiology, and pediatric care. Diagnostic imaging services and laboratory tests. Post-surgical recovery and rehabilitation.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hospital-slide">
+                <div class="hospital-image">
+                    <div class="hospital-overlay">
+                        <div class="hospital-content">
+                            <h3>El Oued General Hospital – El Oued</h3>
+                            <div class="hospital-details">
+                                <p><strong>Beds:</strong> 180</p>
+                                <p>Located in the southern part of Algeria, El Oued General Hospital is equipped with state-of-the-art medical technology and provides a wide range of specialized treatments.</p>
+                                <p><strong>Specializations:</strong> General surgery, orthopedics, pediatrics, and urology. Diagnostic imaging, laboratory testing, and rehabilitation. 24/7 emergency care and ICU.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hospital-slide">
+                <div class="hospital-image">
+                    <div class="hospital-overlay">
+                        <div class="hospital-content">
+                            <h3>Algiers Military Hospital – Algiers</h3>
+                            <div class="hospital-details">
+                                <p><strong>Beds:</strong> 350</p>
+                                <p>The Algiers Military Hospital is one of the largest hospitals in the capital, serving both military personnel and civilians with a wide range of medical services.</p>
+                                <p><strong>Specializations:</strong> Trauma care, orthopedics, general surgery, and emergency services. Diagnostic imaging and ICU services. Post-operative care and rehabilitation.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hospital-slide">
+                <div class="hospital-image">
+                    <div class="hospital-overlay">
+                        <div class="hospital-content">
+                            <h3>Batna University Hospital – Batna</h3>
+                            <div class="hospital-details">
+                                <p><strong>Beds:</strong> 220</p>
+                                <p>Batna University Hospital is a leading institution for medical care and research, providing specialized treatments and serving as a teaching hospital.</p>
+                                <p><strong>Specializations:</strong> Cardiology, oncology, general surgery, and pediatrics. Diagnostic imaging, including MRI, CT scans, and ultrasound. Emergency and intensive care services.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="hospitals-navigation">
+            <button class="nav-btn prev-btn" onclick="changeHospitalSlide(-1)">‹</button>
+            <button class="nav-btn next-btn" onclick="changeHospitalSlide(1)">›</button>
+        </div>
+        
+        <div class="hospitals-dots">
+            <span class="dot active" onclick="currentHospitalSlide(1)"></span>
+            <span class="dot" onclick="currentHospitalSlide(2)"></span>
+            <span class="dot" onclick="currentHospitalSlide(3)"></span>
+            <span class="dot" onclick="currentHospitalSlide(4)"></span>
+            <span class="dot" onclick="currentHospitalSlide(5)"></span>
+            <span class="dot" onclick="currentHospitalSlide(6)"></span>
+            <span class="dot" onclick="currentHospitalSlide(7)"></span>
+            <span class="dot" onclick="currentHospitalSlide(8)"></span>
+            <span class="dot" onclick="currentHospitalSlide(9)"></span>
+            <span class="dot" onclick="currentHospitalSlide(10)"></span>
+            <span class="dot" onclick="currentHospitalSlide(11)"></span>
+            <span class="dot" onclick="currentHospitalSlide(12)"></span>
+            <span class="dot" onclick="currentHospitalSlide(13)"></span>
+            <span class="dot" onclick="currentHospitalSlide(14)"></span>
+            <span class="dot" onclick="currentHospitalSlide(15)"></span>
+            <span class="dot" onclick="currentHospitalSlide(16)"></span>
+            <span class="dot" onclick="currentHospitalSlide(17)"></span>
+            <span class="dot" onclick="currentHospitalSlide(18)"></span>
+            <span class="dot" onclick="currentHospitalSlide(19)"></span>
+            <span class="dot" onclick="currentHospitalSlide(20)"></span>
+        </div>
+    </div>
+
+    <!-- Information Sections -->
+    <div class="info-section">
+        <div class="info-card">
+            <div class="info-image">
+                <img src="{{ url_for('static', filename='image/images (9).jpg') }}" alt="Federated Learning in Healthcare">
+            </div>
+            <div class="info-content">
+                <h3>Federated Learning in Healthcare</h3>
+                <p>Our platform utilizes cutting-edge federated learning technology to enable collaborative AI model training across multiple healthcare institutions while maintaining strict data privacy.</p>
+            </div>
+        </div>
+        
+        <div class="info-card">
+            <div class="info-image">
+                <img src="{{ url_for('static', filename='image/images (10).webp') }}" alt="Advanced Medical Devices">
+            </div>
+            <div class="info-content">
+                <h3>Advanced Medical Imaging Devices</h3>
+                <p>Integration with state-of-the-art medical imaging equipment including MRI machines, X-ray systems, OCT scanners, and microscopy devices.</p>
+            </div>
+        </div>
+        
+        <div class="info-card">
+            <div class="info-image">
+                <img src="{{ url_for('static', filename='image/images (24).png') }}" alt="Medical Data Analytics">
+            </div>
+            <div class="info-content">
+                <h3>Comprehensive Medical Data Analysis</h3>
+                <p>Processing vast amounts of medical data through sophisticated algorithms that can identify patterns invisible to the human eye.</p>
+            </div>
+        </div>
+        
+        <div class="info-card">
+            <div class="info-image">
+                <img src="{{ url_for('static', filename='image/images (1).jpg') }}" alt="AI Innovation">
+            </div>
+            <div class="info-content">
+                <h3>The Innovation of Federated Learning</h3>
+                <p>This project demonstrates the innovative power of federated learning, where multiple institutions contribute to improving the model without sharing raw data.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Startup Information -->
+    <div class="startup-section">
+        <div class="startup-card">
+            <div class="startup-logo">
+                <img src="{{ url_for('static', filename='image/loge.jpeg') }}" alt="Startup Logo">
+            </div>
+            <h2 class="startup-title">Healthcare AI Startup</h2>
+            <div class="startup-details">
+
+                <h3>Startup Project Subject:</h3>
+                <p><strong>Federated Learning for Privacy-Preserving Disease Prediction in Healthcare System</strong></p>
+                <div class="author-info">
+                    <p><strong>Specialty:</strong> Artificial Intelligence and Decision</p>
+                    <p><strong>Student Development:</strong> Seddiki Abd Elghafar</p>
+                    <p><strong>Year:</strong> 2025</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Section -->
+    <footer class="footer-section">
+        <div class="footer-container">
+            <!-- Project Features -->
+            <div class="project-features">
+                <h2 class="features-title">Project Features</h2>
+                <div class="features-grid">
+                    <div class="feature-item">
+                        <div class="feature-icon"></div>
+                        <h3>High Accuracy Diagnosis</h3>
+                        <p>Disease diagnosis with high accuracy using advanced federated learning techniques</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon"></div>
+                        <h3>Training in Top 20 Hospitals</h3>
+                        <p>High-precision training models in the top 20 hospitals in Algeria to ensure the best results in the future, not now. The available models are only trained on data on Kaggle.</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon"></div>
+                        <h3>Bias Elimination</h3>
+                        <p>Aggregating models to eliminate bias in diagnosis and ensure fairness in results</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon"></div>
+                        <h3>Aggregation at Béchar University</h3>
+                        <p>Aggregating models at Tahri Mohamed University in Béchar, Algeria under distinguished academic supervision</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contact Us Section -->
+            <div class="footer-content">
+                <div class="social-media">
+                    <h3>Contact Us</h3>
+                    <div class="social-links">
+                        <a href="https://www.univ-bechar.dz/Ar/" class="social-link university">
+                            <img src="{{ url_for('static', filename='image/logeuniversity.jfif') }}" alt="University">
+                            <span>University</span>
+                        </a>
+                        <a href="#" class="social-link gmail">
+                            <img src="{{ url_for('static', filename='image/logegmail.webp') }}" alt="Gmail">
+                            <span>Gmail</span>
+                        </a>
+                        <a href="#" class="social-link whatsapp">
+                            <img src="{{ url_for('static', filename='image/logewhatsapp.png') }}" alt="WhatsApp">
+                            <span>WhatsApp</span>
+                        </a>
+                        <a href="#" class="social-link twitter">
+                            <img src="{{ url_for('static', filename='image/logetwitter.jpg') }}" alt="Twitter">
+                            <span>Twitter</span>
+                        </a>
+                        <a href="#" class="social-link facebook">
+                            <img src="{{ url_for('static', filename='image/logefacebook.png') }}" alt="Facebook">
+                            <span>Facebook</span>
+                        </a>
+                        <a href="#" class="social-link instagram">
+                            <img src="{{ url_for('static', filename='image/logeinstagram.png') }}" alt="Instagram">
+                            <span>Instagram</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <p>&copy; 2025 Federated Learning Project for Disease Prediction with Privacy Preservation in Healthcare System. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+<script>
+let currentHospitalIndex = 0;
+const hospitalSlides = document.querySelectorAll('.hospital-slide');
+const hospitalDots = document.querySelectorAll('.hospitals-dots .dot');
+
+function showHospitalSlide(index) {
+    // Hide all slides
+    hospitalSlides.forEach(slide => slide.classList.remove('active'));
+    hospitalDots.forEach(dot => dot.classList.remove('active'));
+    
+    // Show selected slide
+    hospitalSlides[index].classList.add('active');
+    hospitalDots[index].classList.add('active');
+}
+
+function changeHospitalSlide(direction) {
+    currentHospitalIndex += direction;
+    
+    if (currentHospitalIndex >= hospitalSlides.length) {
+        currentHospitalIndex = 0;
+    } else if (currentHospitalIndex < 0) {
+        currentHospitalIndex = hospitalSlides.length - 1;
+    }
+    
+    showHospitalSlide(currentHospitalIndex);
+}
+
+function currentHospitalSlide(index) {
+    currentHospitalIndex = index - 1;
+    showHospitalSlide(currentHospitalIndex);
+}
+
+// Auto slide every 8 seconds
+setInterval(() => {
+    changeHospitalSlide(1);
+}, 8000);
+
+// Keyboard control
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') {
+        changeHospitalSlide(-1);
+    } else if (e.key === 'ArrowRight') {
+        changeHospitalSlide(1);
+    }
+});
+</script>
+
+</body>
+</html>

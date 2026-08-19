@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update Models</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Times New Roman', serif;
+            background: linear-gradient(135deg, #f8f5f0 0%, #e8ddd4 100%);
+            color: #2c3e50;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .admin-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+            padding: 20px 40px;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .admin-header h1 {
+            color: #d4af37;
+            font-size: 2.2em;
+            font-family: 'Georgia', serif;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #d4af37 0%, #b8860b 100%);
+            color: white;
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            border: 2px solid #d4af37;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, #b8860b 0%, #8b6914 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(212,175,55,0.4);
+        }
+
+        .update-models-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            padding: 40px;
+            border: 1px solid #e8ddd4;
+        }
+
+        .update-models-container h2 {
+            color: #2c3e50;
+            font-size: 2em;
+            margin-bottom: 15px;
+            font-family: 'Georgia', serif;
+            border-bottom: 2px solid #d4af37;
+            padding-bottom: 10px;
+        }
+
+        .update-models-container p {
+            color: #7f8c8d;
+            font-size: 1.1em;
+            margin-bottom: 30px;
+            line-height: 1.8;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .model-card {
+            background: #f8f5f0;
+            border: 2px solid #e8ddd4;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .model-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            border-color: #d4af37;
+        }
+
+        .model-header {
+            background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+            padding: 20px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .model-name {
+            color: #d4af37;
+            font-size: 1.5em;
+            font-weight: bold;
+            font-family: 'Georgia', serif;
+        }
+
+        .model-id {
+            color: #ecf0f1;
+            font-size: 0.9em;
+            background: rgba(212, 175, 55, 0.2);
+            padding: 5px 10px;
+            border-radius: 12px;
+        }
+
+        .model-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 25px;
+            background: white;
+        }
+
+        .model-info-item {
+            text-align: center;
+        }
+
+        .model-info-label {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .model-info-value {
+            color: #2c3e50;
+            font-size: 1.1em;
+            font-weight: 600;
+            background: #f8f5f0;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid #e8ddd4;
+        }
+
+        .upload-section {
+            padding: 25px;
+            background: #f8f5f0;
+            border-top: 2px solid #e8ddd4;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 10px;
+            color: #2c3e50;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .file-input-wrapper {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #e8ddd4;
+            border-radius: 8px;
+            background-color: white;
+            font-family: 'Times New Roman', serif;
+            transition: all 0.3s ease;
+        }
+
+        .file-input-wrapper input[type="file"]:focus {
+            outline: none;
+            border-color: #d4af37;
+            box-shadow: 0 0 10px rgba(212,175,55,0.2);
+        }
+
+        .btn-update {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid #27ae60;
+        }
+
+        .btn-update:hover {
+            background: linear-gradient(135deg, #229954 0%, #27ae60 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39,174,96,0.4);
+        }
+
+        .last-updated {
+            margin-top: 15px;
+            padding: 10px 15px;
+            background: rgba(212, 175, 55, 0.1);
+            border-left: 4px solid #d4af37;
+            color: #2c3e50;
+            font-style: italic;
+            border-radius: 0 8px 8px 0;
+        }
+
+        @media (max-width: 768px) {
+            .admin-header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+
+            .model-header {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+
+            .file-input-wrapper {
+                flex-direction: column;
+            }
+
+            .file-input-wrapper input[type="file"] {
+                width: 100%;
+            }
+
+            .update-models-container {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1>Update Models</h1>
+            <div>
+                <a href="{{ url_for('admin_dashboard') }}" class="btn">Back to Dashboard</a>
+            </div>
+        </div>
+
+        <div class="update-models-container">
+            <h2>Update Federated Learning Models</h2>
+            <p>Upload updated model files after federated learning training.</p>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            {% for model_type in models %}
+            <div class="model-card">
+                <div class="model-header">
+                    <div class="model-name">{{ model_names[model_type]|join(' / ') }}</div>
+                    <div class="model-id">ID: {{ model_type }}</div>
+                </div>
+                
+                <div class="model-info">
+                    <div class="model-info-item">
+                        <div class="model-info-label">Current Version</div>
+                        <div class="model-info-value">
+                            {% if MODELS[model_type] %}
+                                {{ MODELS[model_type].name }}
+                            {% else %}
+                                Not loaded
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="model-info-item">
+                        <div class="model-info-label">Input Shape</div>
+                        <div class="model-info-value">
+                            {% if MODELS[model_type] %}
+                                {{ MODELS[model_type].input_shape[1:] }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="model-info-item">
+                        <div class="model-info-label">Output Classes</div>
+                        <div class="model-info-value">{{ model_names[model_type]|length }}</div>
+                    </div>
+                </div>
+                
+                <div class="upload-section">
+                    <form action="{{ url_for('update_models') }}" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="model_type" value="{{ model_type }}">
+                        
+                        <div class="form-group">
+                            <label for="model_file_{{ model_type }}">Upload new model (.h5 file)</label>
+                            <div class="file-input-wrapper">
+                                <input type="file" id="model_file_{{ model_type }}" name="model_file" accept=".h5" required>
+                                <button type="submit" class="btn-update">Update Model</button>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <div class="last-updated">
+                        Last updated: {{ model_updates[model_type] }}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>

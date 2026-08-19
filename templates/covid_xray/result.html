@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Covid Chest X-Ray Detection Result</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Times New Roman', serif;
+            background: linear-gradient(135deg, #f8f5f0 0%, #e8ddd4 100%);
+            color: #2c3e50;
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .result-container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            padding: 40px;
+            border: 2px solid #e8ddd4;
+        }
+
+        .result-container h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            text-align: center;
+            margin-bottom: 30px;
+            font-family: 'Georgia', serif;
+            border-bottom: 3px solid #d4af37;
+            padding-bottom: 15px;
+        }
+
+        .model-status {
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .model-status.success {
+            background: rgba(39, 174, 96, 0.1);
+            color: #27ae60;
+            border: 2px solid #27ae60;
+        }
+
+        .model-status.error {
+            background: rgba(231, 76, 60, 0.1);
+            color: #e74c3c;
+            border: 2px solid #e74c3c;
+        }
+
+        .result-container img {
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            border-radius: 15px;
+            border: 3px solid #d4af37;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            margin: 0 auto 30px auto;
+            display: block;
+        }
+
+        .prediction-result {
+            background: #f8f5f0;
+            padding: 30px;
+            border-radius: 15px;
+            border: 2px solid #e8ddd4;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .prediction-result h2 {
+            color: #2c3e50;
+            font-size: 1.8em;
+            margin-bottom: 15px;
+            font-family: 'Georgia', serif;
+        }
+
+        .prediction-result h3 {
+            color: #2c3e50;
+            font-size: 1.4em;
+            margin: 20px 0 10px 0;
+            font-family: 'Georgia', serif;
+        }
+
+        .result-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #d4af37;
+            margin: 15px 0;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+            padding: 15px;
+            background: white;
+            border-radius: 12px;
+            border: 2px solid #d4af37;
+            display: inline-block;
+            min-width: 200px;
+        }
+
+        .model-architecture {
+            background: rgba(212, 175, 55, 0.1);
+            padding: 25px;
+            border-radius: 15px;
+            border-left: 5px solid #d4af37;
+            margin-bottom: 30px;
+        }
+
+        .model-architecture p {
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .model-architecture strong {
+            color: #2c3e50;
+            font-weight: bold;
+        }
+
+        .navigation-section {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #d4af37 0%, #b8860b 100%);
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 1.1em;
+            transition: all 0.3s ease;
+            border: 2px solid #d4af37;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, #b8860b 0%, #8b6914 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(212,175,55,0.4);
+        }
+
+        .back {
+            background: linear-gradient(135deg, #7f8c8d 0%, #95a5a6 100%);
+            border-color: #7f8c8d;
+        }
+
+        .back:hover {
+            background: linear-gradient(135deg, #6c7b7d 0%, #7f8c8d 100%);
+            box-shadow: 0 8px 20px rgba(127,140,141,0.4);
+        }
+
+        /* Animation for result appearance */
+        .prediction-result {
+            animation: slideInUp 0.8s ease-out;
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive design */
+        @media (max-width: 600px) {
+            .result-container {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            .result-container h1 {
+                font-size: 2em;
+            }
+
+            .prediction-result {
+                padding: 20px;
+            }
+
+            .result-value {
+                font-size: 1.5em;
+                min-width: auto;
+                width: 100%;
+            }
+
+            .navigation-section {
+                flex-direction: column;
+            }
+
+            .btn {
+                padding: 12px 20px;
+                font-size: 1em;
+            }
+        }
+
+        /* Special styling for different predictions */
+        .result-value.covid {
+            color: #e74c3c;
+            border-color: #e74c3c;
+        }
+
+        .result-value.normal {
+            color: #27ae60;
+            border-color: #27ae60;
+        }
+
+        .result-value.pneumonia {
+            color: #f39c12;
+            border-color: #f39c12;
+        }
+    </style>
+</head>
+<body>
+    <div class="result-container">
+        <h1>Covid Chest X-Ray Detection Results</h1>
+        
+        <div class="model-status success">
+            Model loaded successfully - Ready for predictions
+        </div>
+        
+        <img src="{{ url_for('uploaded_file', model_type='covid_xray', filename=filename) }}" alt="Chest X-Ray Image">
+        
+        <div class="prediction-result">
+            <h2>Predicted Condition:</h2>
+            <div class="result-value {% if 'covid' in predicted_label.lower() %}covid{% elif 'normal' in predicted_label.lower() %}normal{% else %}pneumonia{% endif %}">
+                {{ predicted_label }}
+            </div>
+            
+            <h3>Confidence Score:</h3>
+            <div class="result-value" style="color: #d4af37; border-color: #d4af37;">
+                {{ '%.2f' % (confidence_score * 100) }}%
+            </div>
+        </div>
+        
+        <div class="model-architecture">
+            <p><strong>Model Details:</strong></p>
+            <p>Input Shape: 150x150 RGB image</p>
+            <p>Classes: Covid, Viral Pneumonia, Normal</p>
+            <p>Architecture: Deep Convolutional Neural Network</p>
+            <p>Training: Medical Imaging Dataset</p>
+        </div>
+        
+        <div class="navigation-section">
+            <a href="{{ url_for('model_home', model_type='covid_xray') }}" class="btn">Back to Model</a>
+            <a href="{{ url_for('home') }}" class="btn back">Back to Home</a>
+        </div>
+    </div>
+</body>
+</html>

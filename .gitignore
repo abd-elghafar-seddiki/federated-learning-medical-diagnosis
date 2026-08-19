@@ -1,0 +1,57 @@
+# ==============================
+# Machine Learning Models
+# ==============================
+models/*
+!models/README.md
+
+# ==============================
+# Uploaded and temporary images
+# ==============================
+uploads/*
+temp_uploads/*
+inputs images/*
+printer_scans/*
+
+# ==============================
+# Python
+# ==============================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+ENV/
+
+# ==============================
+# Environment and secrets
+# ==============================
+.env
+.env.*
+!.env.example
+
+# ==============================
+# Jupyter Notebook
+# ==============================
+.ipynb_checkpoints/
+
+# ==============================
+# IDE
+# ==============================
+.vscode/
+.idea/
+
+# ==============================
+# Operating System
+# ==============================
+.DS_Store
+Thumbs.db
+
+# ==============================
+# Temporary files
+# ==============================
+*.tmp
+*.temp
+*.log

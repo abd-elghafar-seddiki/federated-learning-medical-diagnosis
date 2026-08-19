@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="error-container">
+        <h1>System Error</h1>
+        <div class="model-status error">
+            {{ error }}
+        </div>
+        
+        {% if model_type %}
+        <div class="model-recovery">
+            <h3>Recovery Steps for {{ model_type }}:</h3>
+            <ol>
+                {% if model_type == 'lung_cancer_xray' %}
+                <li>Ensure 'lung_cancer_detection_model.h5' exists in models folder</li>
+                <li>Check the file is not corrupted</li>
+                <li>Verify the file contains valid model weights</li>
+                {% elif model_type == 'lung_cancer_histo' %}
+                <li>Check 'lung-cancer-resnet-model.h5' exists</li>
+                <li>Validate ResNet model compatibility</li>
+                {% else %}
+                <li>Verify 'malaria.h5' exists and is valid</li>
+                {% endif %}
+            </ol>
+        </div>
+        {% endif %}
+        
+        <div class="technical-details">
+            <h3>Technical Details:</h3>
+            <p>Error occurred at: {{ now }}</p>
+        </div>
+        
+        <a href="{{ url_for('home') }}" class="btn">Return to Home</a>
+        <a href="{{ url_for('model_home', model_type=model_type) if model_type else url_for('home') }}" 
+           class="btn secondary">
+           Try Again
+        </a>
+    </div>
+</body>
+</html>
