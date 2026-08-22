@@ -3,7 +3,15 @@
 # ==============================
 models/*
 !models/README.md
-
+models/*.h5
+models/*.keras
+models/*.pkl
+models/*.pt
+models/*.pth
+models/*.tflite
+__pycache__/
+*.pyc
+.env
 # ==============================
 # Uploaded and temporary images
 # ==============================
