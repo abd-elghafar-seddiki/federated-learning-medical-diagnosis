@@ -1,11 +1,9 @@
 import os
 import cv2
-import gc
 import numpy as np
 import pickle
 import secrets
 import shutil
-import threading
 import sqlite3
 
 from datetime import datetime, timedelta
@@ -40,15 +38,20 @@ from tensorflow.keras.layers import (
 from tensorflow.keras.applications.resnet50 import preprocess_input
 from tensorflow.keras.optimizers import Adam
 
-import kagglehub
-
 
 # ============================================================
-# APPLICATION INITIALIZATION
+# APPLICATION CONFIGURATION
 # ============================================================
 
-app = Flask(__name__, static_url_path='/static')
+app = Flask(
+    __name__,
+    static_url_path="/static",
+    static_folder="static",
+    template_folder="templates"
+)
 
+# IMPORTANT:
+# On Render, create SECRET_KEY as an Environment Variable.
 app.secret_key = os.environ.get(
     "SECRET_KEY",
     secrets.token_hex(32)
@@ -61,15 +64,15 @@ bcrypt = Bcrypt(app)
 # KAGGLE CONFIGURATION
 # ============================================================
 
-KAGGLE_DATASET = (
-    "abdelghafarseddiki/"
-    "federated-medical-diagnosis-models"
+# Your public Kaggle dataset
+KAGGLE_DATASET = os.environ.get(
+    "KAGGLE_DATASET",
+    "abdelghafarseddiki/federated-medical-diagnosis-models"
 )
 
-# Local directory where downloaded models will be stored.
-# This directory is ignored by Git.
-MODELS_DIR = os.path.join(
-    os.getcwd(),
+# Local folder where downloaded models will be stored
+MODELS_DIR = os.environ.get(
+    "MODELS_DIR",
     "models"
 )
 
@@ -77,43 +80,93 @@ os.makedirs(MODELS_DIR, exist_ok=True)
 
 
 # ============================================================
-# MODEL FILE NAMES
+# USER ROLES
 # ============================================================
 
-MODEL_FILES = {
-    "lung_cancer_xray":
-        "lung_cancer_detection_model.h5",
-
-    "lung_cancer_histo":
-        "lung-cancer-resnet-model.h5",
-
-    "malaria":
-        "malaria.h5",
-
-    "retinal_oct":
-        "Retinal-OCT-resnet-model.h5",
-
-    "diabetic_retinopathy":
-        "Diabetic-Retinopathy-ResNet50-model.h5",
-
-    "brain_tumor":
-        "brain_tumor_model.h5",
-
-    "covid_xray":
-        "CNN_Covid19_Xray_Version.h5"
+ROLES = {
+    "admin": 3,
+    "doctor": 2,
+    "user": 1
 }
 
 
 # ============================================================
-# MODEL PATHS
+# UPLOAD FOLDERS
+# ============================================================
+
+UPLOAD_FOLDERS = {
+    "lung_cancer_xray": "uploads/lung_cancer_xray",
+    "lung_cancer_histo": "uploads/lung_cancer_histo",
+    "malaria": "uploads/malaria",
+    "retinal_oct": "uploads/retinal_oct",
+    "diabetic_retinopathy": "uploads/diabetic_retinopathy",
+    "brain_tumor": "uploads/brain_tumor",
+    "covid_xray": "uploads/covid_xray"
+}
+
+for folder in UPLOAD_FOLDERS.values():
+    os.makedirs(folder, exist_ok=True)
+
+app.config["UPLOAD_FOLDERS"] = UPLOAD_FOLDERS
+
+
+# ============================================================
+# PRINTER FOLDER
+# ============================================================
+
+PRINTER_FOLDER = "printer_scans"
+
+os.makedirs(PRINTER_FOLDER, exist_ok=True)
+
+app.config["PRINTER_FOLDER"] = PRINTER_FOLDER
+
+
+# ============================================================
+# MODEL INFORMATION
 # ============================================================
 
 MODEL_PATHS = {
-    model_type: os.path.join(
-        MODELS_DIR,
-        filename
-    )
-    for model_type, filename in MODEL_FILES.items()
+    "lung_cancer_xray":
+        os.path.join(MODELS_DIR, "lung_cancer_detection_model.h5"),
+
+    "lung_cancer_histo":
+        os.path.join(MODELS_DIR, "lung-cancer-resnet-model.h5"),
+
+    "malaria":
+        os.path.join(MODELS_DIR, "malaria.h5"),
+
+    "retinal_oct":
+        os.path.join(MODELS_DIR, "Retinal-OCT-resnet-model.h5"),
+
+    "diabetic_retinopathy":
+        os.path.join(
+            MODELS_DIR,
+            "Diabetic-Retinopathy-ResNet50-model.h5"
+        ),
+
+    "brain_tumor":
+        os.path.join(MODELS_DIR, "brain_tumor_model.h5"),
+
+    "covid_xray":
+        os.path.join(
+            MODELS_DIR,
+            "CNN_Covid19_Xray_Version.h5"
+        )
+}
+
+
+# ============================================================
+# MODEL DISPLAY NAMES
+# ============================================================
+
+MODEL_DISPLAY_NAMES = {
+    "lung_cancer_xray": "Lung Cancer X-Ray",
+    "lung_cancer_histo": "Lung Cancer Histopathology",
+    "malaria": "Malaria Detection",
+    "retinal_oct": "Retinal OCT",
+    "diabetic_retinopathy": "Diabetic Retinopathy",
+    "brain_tumor": "Brain Tumor MRI",
+    "covid_xray": "COVID-19 X-Ray"
 }
 
 
@@ -122,7 +175,6 @@ MODEL_PATHS = {
 # ============================================================
 
 CLASS_NAMES = {
-
     "lung_cancer_xray": [
         "Benign",
         "Malignant",
@@ -169,12 +221,13 @@ CLASS_NAMES = {
 # MODEL CACHE
 # ============================================================
 
-# Models are loaded only when needed.
+# IMPORTANT:
+# We DO NOT load all models when the application starts.
+#
+# This is necessary because Render Free has limited RAM.
+#
+# Only the model requested by the user is loaded.
 MODELS = {}
-
-# Prevent two simultaneous requests from downloading/loading
-# the same model at the same time.
-MODEL_LOCK = threading.Lock()
 
 
 # ============================================================
@@ -185,35 +238,32 @@ def download_model_from_kaggle(model_type):
     """
     Download one specific model from the public Kaggle dataset.
 
-    Only the requested model is downloaded.
-    We do NOT download the complete 1 GB dataset.
+    This avoids downloading the complete 1 GB dataset.
     """
 
-    if model_type not in MODEL_FILES:
+    if model_type not in MODEL_PATHS:
         raise ValueError(
             f"Unknown model type: {model_type}"
         )
 
-    filename = MODEL_FILES[model_type]
     local_path = MODEL_PATHS[model_type]
 
     # Already downloaded
     if os.path.exists(local_path):
         print(
-            f"[KAGGLE] Model already exists: {filename}"
+            f"[KAGGLE] Model already exists: {local_path}"
         )
         return local_path
 
-    print("=" * 70)
+    filename = os.path.basename(local_path)
+
     print(
-        f"[KAGGLE] Downloading model: {filename}"
+        f"[KAGGLE] Downloading: {filename}"
     )
-    print(
-        f"[KAGGLE] Dataset: {KAGGLE_DATASET}"
-    )
-    print("=" * 70)
 
     try:
+
+        import kagglehub
 
         downloaded_path = kagglehub.dataset_download(
             KAGGLE_DATASET,
@@ -221,214 +271,68 @@ def download_model_from_kaggle(model_type):
             output_dir=MODELS_DIR
         )
 
-        print(
-            f"[KAGGLE] Downloaded path: "
-            f"{downloaded_path}"
-        )
-
-        # KaggleHub normally returns the exact file path.
-        # However, we handle possible nested paths too.
+        # kagglehub normally returns the exact file path
         if os.path.isfile(downloaded_path):
 
-            if os.path.abspath(
-                downloaded_path
-            ) != os.path.abspath(local_path):
+            if downloaded_path != local_path:
+
+                os.makedirs(
+                    os.path.dirname(local_path),
+                    exist_ok=True
+                )
 
                 shutil.copy2(
                     downloaded_path,
                     local_path
                 )
 
-        elif not os.path.exists(local_path):
-
-            # Search for the requested filename
-            found_path = None
-
-            for root, dirs, files in os.walk(
-                MODELS_DIR
-            ):
-
-                if filename in files:
-
-                    found_path = os.path.join(
-                        root,
-                        filename
-                    )
-
-                    break
-
-            if found_path:
-
-                if os.path.abspath(
-                    found_path
-                ) != os.path.abspath(local_path):
-
-                    shutil.copy2(
-                        found_path,
-                        local_path
-                    )
-
-            else:
-
-                raise FileNotFoundError(
-                    f"Kaggle download completed, "
-                    f"but {filename} was not found."
-                )
-
-        if not os.path.exists(local_path):
-
-            raise FileNotFoundError(
-                f"Model file does not exist after "
-                f"Kaggle download: {local_path}"
+            print(
+                f"[KAGGLE] Download completed: {local_path}"
             )
 
-        print(
-            f"[KAGGLE] Model ready: {local_path}"
+            return local_path
+
+        # Fallback: search the models directory
+        possible_path = os.path.join(
+            MODELS_DIR,
+            filename
         )
 
-        return local_path
+        if os.path.exists(possible_path):
+
+            print(
+                f"[KAGGLE] Model found: {possible_path}"
+            )
+
+            return possible_path
+
+        raise FileNotFoundError(
+            f"Kaggle downloaded the file but it "
+            f"could not be located: {filename}"
+        )
 
     except Exception as e:
 
         print(
-            f"[KAGGLE ERROR] Failed to download "
-            f"{filename}"
+            f"[KAGGLE ERROR] Could not download "
+            f"{filename}: {e}"
         )
-
-        print(str(e))
 
         raise RuntimeError(
-            f"Could not download model "
-            f"{filename} from Kaggle. "
-            f"Error: {str(e)}"
+            f"Unable to download model '{filename}' "
+            f"from Kaggle. Error: {e}"
         )
-
-
-# ============================================================
-# LOAD MODEL
-# ============================================================
-
-def get_model(model_type):
-    """
-    Lazy-load a model.
-
-    First request:
-        1. Download model from Kaggle if necessary.
-        2. Load model into RAM.
-        3. Store it in MODELS cache.
-
-    Later requests:
-        Use the already loaded model.
-    """
-
-    if model_type not in MODEL_FILES:
-
-        raise ValueError(
-            f"Invalid model type: {model_type}"
-        )
-
-    # Fast path:
-    # model is already loaded.
-    if model_type in MODELS:
-
-        return MODELS[model_type]
-
-    # Prevent concurrent loading.
-    with MODEL_LOCK:
-
-        # Check again after acquiring lock.
-        if model_type in MODELS:
-
-            return MODELS[model_type]
-
-        print("=" * 70)
-        print(
-            f"[MODEL] Initializing: {model_type}"
-        )
-        print("=" * 70)
-
-        # Download if necessary.
-        model_path = download_model_from_kaggle(
-            model_type
-        )
-
-        # Load the REAL trained model.
-        try:
-
-            print(
-                f"[MODEL] Loading: {model_path}"
-            )
-
-            model = load_model(
-                model_path,
-                compile=False
-            )
-
-            MODELS[model_type] = model
-
-            print(
-                f"[MODEL] Successfully loaded: "
-                f"{model_type}"
-            )
-
-            return model
-
-        except Exception as e:
-
-            print(
-                f"[MODEL ERROR] Could not load "
-                f"{model_type}: {str(e)}"
-            )
-
-            # Do NOT create a fake/random replacement model.
-            raise RuntimeError(
-                f"Failed to load trained model "
-                f"{model_type}: {str(e)}"
-            )
-
-
-# ============================================================
-# OPTIONAL MODEL UNLOADING
-# ============================================================
-
-def unload_model(model_type):
-    """
-    Remove a model from memory.
-
-    Useful on memory-limited hosting.
-    """
-
-    if model_type in MODELS:
-
-        try:
-
-            del MODELS[model_type]
-
-            gc.collect()
-
-            print(
-                f"[MODEL] Unloaded: {model_type}"
-            )
-
-            return True
-
-        except Exception as e:
-
-            print(
-                f"[MODEL] Failed to unload "
-                f"{model_type}: {e}"
-            )
-
-    return False
 
 
 # ============================================================
 # COVID LABEL ENCODER
 # ============================================================
 
-COVID_LABEL_ENCODER_FILE = os.path.join(
+COVID_LABEL_ENCODER_FILENAME = "Label_encoder.pkl"
+
+COVID_LABEL_ENCODER_PATH = os.path.join(
     MODELS_DIR,
-    "Label_encoder.pkl"
+    COVID_LABEL_ENCODER_FILENAME
 )
 
 covid_le = None
@@ -436,7 +340,9 @@ covid_le = None
 
 def load_covid_label_encoder():
     """
-    Download and load the COVID label encoder.
+    Load the COVID label encoder from Kaggle.
+
+    If unavailable, use the known class ordering.
     """
 
     global covid_le
@@ -444,178 +350,164 @@ def load_covid_label_encoder():
     if covid_le is not None:
         return covid_le
 
-    if not os.path.exists(
-        COVID_LABEL_ENCODER_FILE
-    ):
+    try:
 
-        print(
-            "[KAGGLE] Downloading "
-            "Label_encoder.pkl..."
-        )
+        if not os.path.exists(
+            COVID_LABEL_ENCODER_PATH
+        ):
 
-        try:
+            import kagglehub
 
-            downloaded_path = (
-                kagglehub.dataset_download(
-                    KAGGLE_DATASET,
-                    path="Label_encoder.pkl",
-                    output_dir=MODELS_DIR
-                )
+            print(
+                "[KAGGLE] Downloading COVID "
+                "label encoder..."
+            )
+
+            downloaded_path = kagglehub.dataset_download(
+                KAGGLE_DATASET,
+                path=COVID_LABEL_ENCODER_FILENAME,
+                output_dir=MODELS_DIR
             )
 
             if os.path.isfile(downloaded_path):
 
-                if os.path.abspath(
-                    downloaded_path
-                ) != os.path.abspath(
-                    COVID_LABEL_ENCODER_FILE
-                ):
+                if downloaded_path != COVID_LABEL_ENCODER_PATH:
 
                     shutil.copy2(
                         downloaded_path,
-                        COVID_LABEL_ENCODER_FILE
+                        COVID_LABEL_ENCODER_PATH
                     )
 
-        except Exception as e:
-
-            print(
-                "[KAGGLE] Could not download "
-                f"Label_encoder.pkl: {e}"
-            )
-
-    # Try loading the real encoder.
-    if os.path.exists(
-        COVID_LABEL_ENCODER_FILE
-    ):
-
-        try:
+        if os.path.exists(
+            COVID_LABEL_ENCODER_PATH
+        ):
 
             with open(
-                COVID_LABEL_ENCODER_FILE,
+                COVID_LABEL_ENCODER_PATH,
                 "rb"
             ) as f:
 
                 covid_le = pickle.load(f)
 
             print(
-                "[COVID] Label encoder loaded."
-            )
-
-            print(
-                "[COVID] Classes:",
-                covid_le.classes_
+                "[KAGGLE] COVID Label Encoder loaded."
             )
 
             return covid_le
 
-        except Exception as e:
+    except Exception as e:
 
-            print(
-                "[COVID] Failed to load "
-                f"label encoder: {e}"
-            )
+        print(
+            f"[KAGGLE] Label encoder unavailable: {e}"
+        )
 
-    # Fallback only for label decoding.
-    # This does NOT replace the trained model.
-    print(
-        "[COVID] Creating default label encoder."
-    )
-
+    # Safe fallback
     covid_le = LabelEncoder()
 
-    covid_le.fit(
-        [
-            "Covid",
-            "Viral Pneumonia",
-            "Normal"
-        ]
-    )
+    covid_le.fit([
+        "Covid",
+        "Viral Pneumonia",
+        "Normal"
+    ])
 
     return covid_le
 
 
 # ============================================================
-# USER ROLES
+# LOAD MODEL ONLY WHEN NEEDED
 # ============================================================
 
-ROLES = {
-    "admin": 3,
-    "doctor": 2,
-    "user": 1
-}
+def get_model(model_type):
+    """
+    Lazy-load a model.
 
+    The model is downloaded from Kaggle only if necessary,
+    then loaded into memory only when requested.
+    """
 
-# ============================================================
-# UPLOAD FOLDERS
-# ============================================================
+    if model_type not in MODEL_PATHS:
 
-UPLOAD_FOLDERS = {
+        raise ValueError(
+            f"Unknown model type: {model_type}"
+        )
 
-    "lung_cancer_xray":
-        "uploads/lung_cancer_xray",
+    # Model already in RAM
+    if model_type in MODELS:
 
-    "lung_cancer_histo":
-        "uploads/lung_cancer_histo",
+        return MODELS[model_type]
 
-    "malaria":
-        "uploads/malaria",
-
-    "retinal_oct":
-        "uploads/retinal_oct",
-
-    "diabetic_retinopathy":
-        "uploads/diabetic_retinopathy",
-
-    "brain_tumor":
-        "uploads/brain_tumor",
-
-    "covid_xray":
-        "uploads/covid_xray"
-}
-
-
-for folder in UPLOAD_FOLDERS.values():
-
-    os.makedirs(
-        folder,
-        exist_ok=True
+    print(
+        f"\n[MODEL] Preparing {model_type}..."
     )
 
+    model_path = MODEL_PATHS[model_type]
 
-app.config[
-    "UPLOAD_FOLDERS"
-] = UPLOAD_FOLDERS
+    # Download model if it does not exist
+    if not os.path.exists(model_path):
 
+        download_model_from_kaggle(
+            model_type
+        )
 
-# ============================================================
-# PRINTER FOLDER
-# ============================================================
+    print(
+        f"[MODEL] Loading {model_path}"
+    )
 
-PRINTER_FOLDER = "printer_scans"
+    try:
 
-os.makedirs(
-    PRINTER_FOLDER,
-    exist_ok=True
-)
+        model = load_model(
+            model_path,
+            compile=False
+        )
 
-app.config[
-    "PRINTER_FOLDER"
-] = PRINTER_FOLDER
+        MODELS[model_type] = model
+
+        print(
+            f"[MODEL] {model_type} loaded successfully."
+        )
+
+        return model
+
+    except Exception as e:
+
+        print(
+            f"[MODEL ERROR] {model_type}: {e}"
+        )
+
+        # Remove corrupted downloaded file
+        try:
+            if os.path.exists(model_path):
+                os.remove(model_path)
+        except:
+            pass
+
+        raise RuntimeError(
+            f"Could not load model "
+            f"{model_type}: {e}"
+        )
 
 
 # ============================================================
 # DATABASE
 # ============================================================
 
-def init_db():
+def get_db_connection():
 
     conn = sqlite3.connect(
         "users.db"
     )
 
+    conn.row_factory = sqlite3.Row
+
+    return conn
+
+
+def init_db():
+
+    conn = get_db_connection()
+
     c = conn.cursor()
 
-    # Users table
     c.execute(
         """
         CREATE TABLE IF NOT EXISTS users
@@ -636,7 +528,6 @@ def init_db():
         """
     )
 
-    # Password reset table
     c.execute(
         """
         CREATE TABLE IF NOT EXISTS password_resets
@@ -652,6 +543,7 @@ def init_db():
     )
 
     conn.commit()
+
     conn.close()
 
 
@@ -659,19 +551,8 @@ init_db()
 
 
 # ============================================================
-# DATABASE HELPERS
+# USER FUNCTIONS
 # ============================================================
-
-def get_db_connection():
-
-    conn = sqlite3.connect(
-        "users.db"
-    )
-
-    conn.row_factory = sqlite3.Row
-
-    return conn
-
 
 def create_user(
     first_name,
@@ -697,11 +578,11 @@ def create_user(
         .strftime("%Y-%m-%d %H:%M:%S")
     )
 
-    # First user becomes admin.
     user_count = conn.execute(
         "SELECT COUNT(*) FROM users"
     ).fetchone()[0]
 
+    # First registered user = admin
     role = 3 if user_count == 0 else 1
 
     try:
@@ -750,49 +631,35 @@ def create_user(
         conn.close()
 
 
-def verify_user(
-    email,
-    password
-):
+def verify_user(email, password):
 
     conn = get_db_connection()
 
     user = conn.execute(
-        """
-        SELECT *
-        FROM users
-        WHERE email = ?
-        """,
+        "SELECT * FROM users WHERE email = ?",
         (email,)
     ).fetchone()
 
     conn.close()
 
-    if (
-        user
-        and bcrypt.check_password_hash(
+    if user:
+
+        if bcrypt.check_password_hash(
             user["password"],
             password
-        )
-    ):
+        ):
 
-        return user
+            return user
 
     return None
 
 
-def get_user_by_id(
-    user_id
-):
+def get_user_by_id(user_id):
 
     conn = get_db_connection()
 
     user = conn.execute(
-        """
-        SELECT *
-        FROM users
-        WHERE id = ?
-        """,
+        "SELECT * FROM users WHERE id = ?",
         (user_id,)
     ).fetchone()
 
@@ -801,10 +668,7 @@ def get_user_by_id(
     return user
 
 
-def update_user(
-    user_id,
-    **kwargs
-):
+def update_user(user_id, **kwargs):
 
     conn = get_db_connection()
 
@@ -828,10 +692,9 @@ def update_user(
 
             params.append(value)
 
-        query = (
-            query.rstrip(", ")
-            + " WHERE id = ?"
-        )
+        query = query.rstrip(", ")
+
+        query += " WHERE id = ?"
 
         params.append(user_id)
 
@@ -847,7 +710,7 @@ def update_user(
     except Exception as e:
 
         print(
-            f"Error updating user: {e}"
+            f"[DATABASE ERROR] {e}"
         )
 
         return False
@@ -899,10 +762,7 @@ def get_user_stats():
 def login_required(f):
 
     @wraps(f)
-    def decorated_function(
-        *args,
-        **kwargs
-    ):
+    def decorated_function(*args, **kwargs):
 
         if "user_id" not in session:
 
@@ -915,10 +775,7 @@ def login_required(f):
                 url_for("login")
             )
 
-        return f(
-            *args,
-            **kwargs
-        )
+        return f(*args, **kwargs)
 
     return decorated_function
 
@@ -966,10 +823,7 @@ def role_required(role_name):
                     url_for("home")
                 )
 
-            return f(
-                *args,
-                **kwargs
-            )
+            return f(*args, **kwargs)
 
         return decorated_function
 
@@ -1032,12 +886,10 @@ def login():
                 url_for("home")
             )
 
-        else:
-
-            flash(
-                "Incorrect email or password",
-                "danger"
-            )
+        flash(
+            "Incorrect email or password",
+            "danger"
+        )
 
     return render_template(
         "auth/login.html"
@@ -1052,37 +904,21 @@ def register():
 
     if request.method == "POST":
 
-        first_name = request.form[
-            "first_name"
-        ]
+        first_name = request.form["first_name"]
 
-        last_name = request.form[
-            "last_name"
-        ]
+        last_name = request.form["last_name"]
 
-        birth_date = request.form[
-            "birth_date"
-        ]
+        birth_date = request.form["birth_date"]
 
-        hospital = request.form[
-            "hospital"
-        ]
+        hospital = request.form["hospital"]
 
-        phone = request.form[
-            "phone"
-        ]
+        phone = request.form["phone"]
 
-        user_type = request.form[
-            "user_type"
-        ]
+        user_type = request.form["user_type"]
 
-        email = request.form[
-            "email"
-        ]
+        email = request.form["email"]
 
-        password = request.form[
-            "password"
-        ]
+        password = request.form["password"]
 
         if create_user(
             first_name,
@@ -1105,12 +941,10 @@ def register():
                 url_for("login")
             )
 
-        else:
-
-            flash(
-                "Email already registered",
-                "danger"
-            )
+        flash(
+            "Email already registered",
+            "danger"
+        )
 
     return render_template(
         "auth/register.html"
@@ -1170,9 +1004,7 @@ def admin_dashboard():
     methods=["POST"]
 )
 @role_required("admin")
-def admin_update_user(
-    user_id
-):
+def admin_update_user(user_id):
 
     data = request.get_json()
 
@@ -1185,12 +1017,10 @@ def admin_update_user(
         "is_active"
     ]:
 
-        return jsonify(
-            {
-                "success": False,
-                "message": "Invalid field"
-            }
-        )
+        return jsonify({
+            "success": False,
+            "message": "Invalid field"
+        })
 
     conn = get_db_connection()
 
@@ -1210,29 +1040,112 @@ def admin_update_user(
 
         conn.commit()
 
-        return jsonify(
-            {
-                "success": True
-            }
-        )
+        return jsonify({
+            "success": True
+        })
 
     except Exception as e:
 
-        print(
-            f"Error updating user: {e}"
-        )
-
-        return jsonify(
-            {
-                "success": False,
-                "message": str(e)
-            }
-        )
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        })
 
     finally:
 
         conn.close()
 
+
+@app.route(
+    "/admin/edit-user/<int:user_id>",
+    methods=["GET", "POST"]
+)
+@role_required("admin")
+def admin_edit_user(user_id):
+
+    user = get_user_by_id(user_id)
+
+    if not user:
+
+        flash(
+            "User not found",
+            "danger"
+        )
+
+        return redirect(
+            url_for("admin_dashboard")
+        )
+
+    if request.method == "POST":
+
+        updates = {
+
+            "first_name":
+                request.form["first_name"],
+
+            "last_name":
+                request.form["last_name"],
+
+            "birth_date":
+                request.form["birth_date"],
+
+            "hospital":
+                request.form["hospital"],
+
+            "phone":
+                request.form["phone"],
+
+            "user_type":
+                request.form["user_type"],
+
+            "email":
+                request.form["email"],
+
+            "is_active":
+                1
+                if request.form.get("is_active") == "on"
+                else 0
+        }
+
+        if request.form["password"]:
+
+            updates["password"] = (
+                request.form["password"]
+            )
+
+        if update_user(
+            user_id,
+            **updates
+        ):
+
+            flash(
+                "User updated successfully",
+                "success"
+            )
+
+        else:
+
+            flash(
+                "Error updating user",
+                "danger"
+            )
+
+        return redirect(
+            url_for(
+                "admin_edit_user",
+                user_id=user_id
+            )
+        )
+
+    return render_template(
+        "admin/edit_user.html",
+        user=user
+    )
+
+
+# ============================================================
+# PROFILE
+# ============================================================
 
 @app.route(
     "/profile",
@@ -1335,9 +1248,7 @@ def reset_password_request():
 
         if user:
 
-            token = secrets.token_urlsafe(
-                32
-            )
+            token = secrets.token_urlsafe(32)
 
             expires_at = (
                 datetime.now()
@@ -1370,8 +1281,8 @@ def reset_password_request():
             conn.close()
 
             flash(
-                "Password reset link has "
-                "been sent to your email",
+                "Password reset link has been sent "
+                "to your email",
                 "info"
             )
 
@@ -1413,14 +1324,11 @@ def reset_password(token):
         reset_request is not None
     )
 
-    if (
-        request.method == "POST"
-        and valid_token
-    ):
+    if request.method == "POST" and valid_token:
 
-        new_password = request.form[
-            "password"
-        ]
+        new_password = (
+            request.form["password"]
+        )
 
         if update_user(
             reset_request["user_id"],
@@ -1449,12 +1357,10 @@ def reset_password(token):
                 url_for("login")
             )
 
-        else:
-
-            flash(
-                "Error updating password",
-                "danger"
-            )
+        flash(
+            "Error updating password",
+            "danger"
+        )
 
     conn.close()
 
@@ -1466,104 +1372,7 @@ def reset_password(token):
 
 
 # ============================================================
-# ADMIN EDIT USER
-# ============================================================
-
-@app.route(
-    "/admin/edit-user/<int:user_id>",
-    methods=["GET", "POST"]
-)
-@role_required("admin")
-def admin_edit_user(
-    user_id
-):
-
-    user = get_user_by_id(
-        user_id
-    )
-
-    if not user:
-
-        flash(
-            "User not found",
-            "danger"
-        )
-
-        return redirect(
-            url_for("admin_dashboard")
-        )
-
-    if request.method == "POST":
-
-        updates = {
-
-            "first_name":
-                request.form["first_name"],
-
-            "last_name":
-                request.form["last_name"],
-
-            "birth_date":
-                request.form["birth_date"],
-
-            "hospital":
-                request.form["hospital"],
-
-            "phone":
-                request.form["phone"],
-
-            "user_type":
-                request.form["user_type"],
-
-            "email":
-                request.form["email"],
-
-            "is_active":
-                1
-                if request.form.get(
-                    "is_active"
-                ) == "on"
-                else 0
-        }
-
-        if request.form["password"]:
-
-            updates["password"] = (
-                request.form["password"]
-            )
-
-        if update_user(
-            user_id,
-            **updates
-        ):
-
-            flash(
-                "User updated successfully",
-                "success"
-            )
-
-        else:
-
-            flash(
-                "Error updating user",
-                "danger"
-            )
-
-        return redirect(
-            url_for(
-                "admin_edit_user",
-                user_id=user_id
-            )
-        )
-
-    return render_template(
-        "admin/edit_user.html",
-        user=user
-    )
-
-
-# ============================================================
-# ADMIN MODEL UPDATE
+# MODEL UPDATE
 # ============================================================
 
 @app.route(
@@ -1617,114 +1426,44 @@ def update_models():
                 file.filename
             )
 
-            temp_dir = "temp_uploads"
-
             os.makedirs(
-                temp_dir,
+                "temp_uploads",
                 exist_ok=True
             )
 
             temp_path = os.path.join(
-                temp_dir,
+                "temp_uploads",
                 filename
             )
 
-            file.save(
-                temp_path
+            file.save(temp_path)
+
+            # Validate model
+            test_model = load_model(
+                temp_path,
+                compile=False
             )
 
-            # Verify model.
-            try:
-
-                test_model = load_model(
-                    temp_path,
-                    compile=False
-                )
-
-                # Basic shape test.
-                if model_type == "covid_xray":
-
-                    test_input = np.random.rand(
-                        1,
-                        150,
-                        150,
-                        3
-                    )
-
-                elif model_type == "lung_cancer_xray":
-
-                    test_input = np.random.rand(
-                        1,
-                        256,
-                        256,
-                        3
-                    )
-
-                elif model_type == "malaria":
-
-                    test_input = np.random.rand(
-                        1,
-                        100,
-                        100,
-                        3
-                    )
-
-                else:
-
-                    test_input = np.random.rand(
-                        1,
-                        224,
-                        224,
-                        3
-                    )
-
-                test_model.predict(
-                    test_input,
-                    verbose=0
-                )
-
-                del test_model
-
-                gc.collect()
-
-            except Exception as e:
-
-                if os.path.exists(
-                    temp_path
-                ):
-
-                    os.remove(
-                        temp_path
-                    )
-
-                flash(
-                    f"File is not a valid model: "
-                    f"{str(e)}",
-                    "danger"
-                )
-
-                return redirect(
-                    url_for("update_models")
-                )
-
-            # Replace old model.
+            # Replace the Kaggle model locally
             model_path = MODEL_PATHS[
                 model_type
             ]
+
+            os.makedirs(
+                MODELS_DIR,
+                exist_ok=True
+            )
 
             shutil.move(
                 temp_path,
                 model_path
             )
 
-            # Remove cached model.
-            unload_model(
-                model_type
-            )
+            # Replace cached model
+            MODELS[model_type] = test_model
 
             flash(
-                f"Model {model_type} "
-                "updated successfully!",
+                f"Model {model_type} updated successfully!",
                 "success"
             )
 
@@ -1734,8 +1473,16 @@ def update_models():
 
         except Exception as e:
 
+            try:
+
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+
+            except:
+                pass
+
             flash(
-                f"Error updating model: {str(e)}",
+                f"Error updating model: {e}",
                 "danger"
             )
 
@@ -1743,42 +1490,36 @@ def update_models():
                 url_for("update_models")
             )
 
-    # Model update information.
     model_updates = {}
 
     for model_type, path in MODEL_PATHS.items():
 
         if os.path.exists(path):
 
-            model_updates[
-                model_type
-            ] = datetime.fromtimestamp(
-                os.path.getmtime(path)
-            ).strftime(
-                "%Y-%m-%d %H:%M:%S"
+            model_updates[model_type] = (
+                datetime
+                .fromtimestamp(
+                    os.path.getmtime(path)
+                )
+                .strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
             )
 
         else:
 
-            model_updates[
-                model_type
-            ] = "Not downloaded"
+            model_updates[model_type] = (
+                "Not downloaded"
+            )
 
     return render_template(
         "admin/update_models.html",
-
         models=list(
             MODEL_PATHS.keys()
         ),
-
         model_names=CLASS_NAMES,
-
-        # This contains only currently
-        # loaded models.
         MODELS=MODELS,
-
         MODEL_PATHS=MODEL_PATHS,
-
         model_updates=model_updates
     )
 
@@ -1806,7 +1547,7 @@ def process_image(
             )
 
         # IMPORTANT:
-        # Model is loaded only now.
+        # Get ONLY the requested model.
         model = get_model(
             model_type
         )
@@ -1814,7 +1555,6 @@ def process_image(
         classes = CLASS_NAMES[
             model_type
         ]
-
 
         # ----------------------------------------------------
         # LUNG CANCER X-RAY
@@ -1838,7 +1578,6 @@ def process_image(
                 img,
                 axis=0
             )
-
 
         # ----------------------------------------------------
         # COVID X-RAY
@@ -1875,19 +1614,19 @@ def process_image(
             )
 
             confidence = float(
-                predictions[
-                    0
-                ][predicted_index]
+                predictions[0][
+                    predicted_index
+                ]
             )
 
-            label_encoder = (
+            encoder = (
                 load_covid_label_encoder()
             )
 
             try:
 
                 predicted_label = (
-                    label_encoder
+                    encoder
                     .inverse_transform(
                         [predicted_index]
                     )[0]
@@ -1896,14 +1635,15 @@ def process_image(
             except Exception:
 
                 predicted_label = (
-                    classes[predicted_index]
+                    classes[
+                        predicted_index
+                    ]
                 )
 
             return (
                 predicted_label,
                 confidence
             )
-
 
         # ----------------------------------------------------
         # RESNET MODELS
@@ -1935,7 +1675,6 @@ def process_image(
                 axis=0
             )
 
-
         # ----------------------------------------------------
         # MALARIA
         # ----------------------------------------------------
@@ -1966,7 +1705,6 @@ def process_image(
                 f"{model_type}"
             )
 
-
         # ----------------------------------------------------
         # PREDICTION
         # ----------------------------------------------------
@@ -1976,38 +1714,27 @@ def process_image(
             verbose=0
         )
 
-
-        # ----------------------------------------------------
-        # BINARY MODELS
-        # ----------------------------------------------------
-
+        # Binary models
         if model_type in [
             "malaria",
             "diabetic_retinopathy"
         ]:
 
-            probability = float(
+            score = float(
                 predictions[0][0]
             )
 
-            predicted_index = int(
-                probability > 0.5
+            predicted_index = (
+                1
+                if score > 0.5
+                else 0
             )
 
-            if predicted_index == 1:
-
-                confidence = probability
-
-            else:
-
-                confidence = (
-                    1.0 - probability
-                )
-
-
-        # ----------------------------------------------------
-        # MULTI-CLASS MODELS
-        # ----------------------------------------------------
+            confidence = (
+                score
+                if predicted_index == 1
+                else 1 - score
+            )
 
         else:
 
@@ -2018,14 +1745,23 @@ def process_image(
             )
 
             confidence = float(
-                predictions[
-                    0
-                ][predicted_index]
+                predictions[0][
+                    predicted_index
+                ]
             )
 
+        if predicted_index >= len(classes):
+
+            predicted_index = (
+                len(classes) - 1
+            )
+
+        predicted_label = classes[
+            predicted_index
+        ]
 
         return (
-            classes[predicted_index],
+            predicted_label,
             float(confidence)
         )
 
@@ -2033,14 +1769,14 @@ def process_image(
 
         print(
             f"[PREDICTION ERROR] "
-            f"{model_type}: {str(e)}"
+            f"{model_type}: {e}"
         )
 
         raise
 
 
 # ============================================================
-# PRINTER IMAGE PROCESSING
+# PRINTER PROCESSING
 # ============================================================
 
 def process_printer_image(
@@ -2060,8 +1796,11 @@ def process_printer_image(
                 "Failed to read printer image"
             )
 
-        timestamp = datetime.now().strftime(
-            "%Y%m%d_%H%M%S_%f"
+        timestamp = (
+            datetime.now()
+            .strftime(
+                "%Y%m%d_%H%M%S_%f"
+            )
         )
 
         saved_path = os.path.join(
@@ -2080,32 +1819,19 @@ def process_printer_image(
         )
 
         return {
-
             "status": "success",
-
-            "prediction":
-                result[0],
-
-            "confidence":
-                float(result[1]),
-
-            "image_path":
-                saved_path
+            "prediction": result[0],
+            "confidence": float(result[1]),
+            "image_path": saved_path
         }
 
     except Exception as e:
 
         return {
-
             "status": "error",
-
             "message": str(e)
         }
 
-
-# ============================================================
-# PRINTER API
-# ============================================================
 
 @app.route(
     "/api/process_scan",
@@ -2116,25 +1842,17 @@ def process_scan():
 
     if "file" not in request.files:
 
-        return jsonify(
-            {
-                "error":
-                    "No file provided"
-            }
-        ), 400
+        return jsonify({
+            "error": "No file provided"
+        }), 400
 
-    file = request.files[
-        "file"
-    ]
+    file = request.files["file"]
 
     if file.filename == "":
 
-        return jsonify(
-            {
-                "error":
-                    "Filename is empty"
-            }
-        ), 400
+        return jsonify({
+            "error": "Filename is empty"
+        }), 400
 
     filename = secure_filename(
         file.filename
@@ -2145,28 +1863,23 @@ def process_scan():
         f"temp_{filename}"
     )
 
-    file.save(
-        temp_path
-    )
+    file.save(temp_path)
 
     model_type = request.form.get(
         "model_type",
         "lung_cancer_xray"
     )
 
-    if model_type not in MODEL_FILES:
+    if model_type not in MODEL_PATHS:
 
         try:
             os.remove(temp_path)
-        except Exception:
+        except:
             pass
 
-        return jsonify(
-            {
-                "error":
-                    "Invalid model type"
-            }
-        ), 400
+        return jsonify({
+            "error": "Invalid model type"
+        }), 400
 
     result = process_printer_image(
         model_type,
@@ -2175,11 +1888,9 @@ def process_scan():
 
     try:
 
-        os.remove(
-            temp_path
-        )
+        os.remove(temp_path)
 
-    except Exception:
+    except:
 
         pass
 
@@ -2195,200 +1906,34 @@ def process_scan():
 
 
 # ============================================================
-# OPTIONAL MODEL BUILDERS
+# MODEL INFORMATION
 # ============================================================
 
-def build_lung_cancer_xray_model():
+def get_model_status():
 
-    input_shape = (
-        256,
-        256,
-        3
-    )
+    result = {}
 
-    inputs = Input(
-        shape=input_shape
-    )
+    for model_type, path in MODEL_PATHS.items():
 
-    x = Conv2D(
-        32,
-        (3, 3),
-        activation="relu",
-        padding="same"
-    )(inputs)
+        result[model_type] = {
 
-    x = MaxPooling2D(
-        (2, 2)
-    )(x)
+            "name":
+                MODEL_DISPLAY_NAMES[
+                    model_type
+                ],
 
-    x = Conv2D(
-        64,
-        (3, 3),
-        activation="relu",
-        padding="same"
-    )(x)
+            "downloaded":
+                os.path.exists(path),
 
-    x = MaxPooling2D(
-        (2, 2)
-    )(x)
+            "loaded":
+                model_type in MODELS
+        }
 
-    x = Conv2D(
-        128,
-        (3, 3),
-        activation="relu",
-        padding="same"
-    )(x)
-
-    x = MaxPooling2D(
-        (2, 2)
-    )(x)
-
-    x = Flatten()(x)
-
-    x = Dense(
-        256,
-        activation="relu"
-    )(x)
-
-    x = Dropout(
-        0.5
-    )(x)
-
-    outputs = Dense(
-        3,
-        activation="softmax"
-    )(x)
-
-    model = Model(
-        inputs,
-        outputs
-    )
-
-    model.compile(
-        optimizer=Adam(
-            learning_rate=0.0001
-        ),
-        loss="categorical_crossentropy",
-        metrics=["accuracy"]
-    )
-
-    return model
-
-
-def build_brain_tumor_model():
-
-    inputs = Input(
-        shape=(
-            224,
-            224,
-            3
-        )
-    )
-
-    x = Conv2D(
-        32,
-        (3, 3),
-        activation="relu"
-    )(inputs)
-
-    x = MaxPooling2D(
-        (2, 2)
-    )(x)
-
-    x = Conv2D(
-        64,
-        (3, 3),
-        activation="relu"
-    )(x)
-
-    x = MaxPooling2D(
-        (2, 2)
-    )(x)
-
-    x = Flatten()(x)
-
-    x = Dense(
-        128,
-        activation="relu"
-    )(x)
-
-    outputs = Dense(
-        2,
-        activation="softmax"
-    )(x)
-
-    model = Model(
-        inputs,
-        outputs
-    )
-
-    model.compile(
-        optimizer="adam",
-        loss="categorical_crossentropy",
-        metrics=["accuracy"]
-    )
-
-    return model
-
-
-def build_covid_xray_model():
-
-    inputs = Input(
-        shape=(
-            150,
-            150,
-            3
-        )
-    )
-
-    x = Conv2D(
-        32,
-        (3, 3),
-        activation="relu"
-    )(inputs)
-
-    x = MaxPooling2D(
-        (2, 2)
-    )(x)
-
-    x = Conv2D(
-        64,
-        (3, 3),
-        activation="relu"
-    )(x)
-
-    x = MaxPooling2D(
-        (2, 2)
-    )(x)
-
-    x = Flatten()(x)
-
-    x = Dense(
-        128,
-        activation="relu"
-    )(x)
-
-    outputs = Dense(
-        3,
-        activation="softmax"
-    )(x)
-
-    model = Model(
-        inputs,
-        outputs
-    )
-
-    model.compile(
-        optimizer="adam",
-        loss="categorical_crossentropy",
-        metrics=["accuracy"]
-    )
-
-    return model
+    return result
 
 
 # ============================================================
-# HOME
+# MAIN PAGE
 # ============================================================
 
 @app.route("/")
@@ -2403,30 +1948,33 @@ def home():
             model_path
         ):
 
-            model_updates[
-                model_type
-            ] = datetime.fromtimestamp(
-                os.path.getmtime(
-                    model_path
+            model_updates[model_type] = (
+                datetime
+                .fromtimestamp(
+                    os.path.getmtime(
+                        model_path
+                    )
                 )
-            ).strftime(
-                "%Y-%m-%d %H:%M"
+                .strftime(
+                    "%Y-%m-%d %H:%M"
+                )
             )
 
         else:
 
-            model_updates[
-                model_type
-            ] = "Not downloaded"
+            model_updates[model_type] = (
+                "Available on Kaggle"
+            )
 
     return render_template(
         "index.html",
-        model_updates=model_updates
+        model_updates=model_updates,
+        model_status=get_model_status()
     )
 
 
 # ============================================================
-# PRINTER PAGE
+# PRINTER
 # ============================================================
 
 @app.route("/printer")
@@ -2442,15 +1990,11 @@ def printer_interface():
 # MODEL HOME
 # ============================================================
 
-@app.route(
-    "/<model_type>"
-)
+@app.route("/<model_type>")
 @login_required
-def model_home(
-    model_type
-):
+def model_home(model_type):
 
-    if model_type not in MODEL_FILES:
+    if model_type not in MODEL_PATHS:
 
         return redirect(
             url_for("home")
@@ -2470,11 +2014,9 @@ def model_home(
     methods=["POST"]
 )
 @login_required
-def upload_file(
-    model_type
-):
+def upload_file(model_type):
 
-    if model_type not in MODEL_FILES:
+    if model_type not in MODEL_PATHS:
 
         return redirect(
             request.url
@@ -2482,18 +2024,11 @@ def upload_file(
 
     if "file" not in request.files:
 
-        return render_template(
-            "error.html",
-            error="No file uploaded",
-            model_type=model_type,
-            now=datetime.now().strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
-        ), 400
+        return redirect(
+            request.url
+        )
 
-    file = request.files[
-        "file"
-    ]
+    file = request.files["file"]
 
     if file.filename == "":
 
@@ -2506,9 +2041,9 @@ def upload_file(
     )
 
     upload_folder = (
-        app.config[
-            "UPLOAD_FOLDERS"
-        ][model_type]
+        app.config["UPLOAD_FOLDERS"][
+            model_type
+        ]
     )
 
     os.makedirs(
@@ -2521,9 +2056,7 @@ def upload_file(
         filename
     )
 
-    file.save(
-        file_path
-    )
+    file.save(file_path)
 
     try:
 
@@ -2536,34 +2069,21 @@ def upload_file(
 
         return render_template(
             f"{model_type}/result.html",
-
             image_path=file_path,
-
             filename=filename,
-
             model_type=model_type,
-
             predicted_label=predicted_label,
-
             confidence_score=confidence_score
         )
 
     except Exception as e:
 
-        print(
-            f"[UPLOAD ERROR] {str(e)}"
-        )
-
         return render_template(
             "error.html",
-
             error=(
-                f"Image processing error: "
-                f"{str(e)}"
+                f"Image processing error: {str(e)}"
             ),
-
             model_type=model_type,
-
             now=datetime.now().strftime(
                 "%Y-%m-%d %H:%M:%S"
             )
@@ -2578,11 +2098,9 @@ def upload_file(
     "/<model_type>/camera"
 )
 @login_required
-def camera(
-    model_type
-):
+def camera(model_type):
 
-    if model_type not in MODEL_FILES:
+    if model_type not in MODEL_PATHS:
 
         return redirect(
             url_for("home")
@@ -2606,20 +2124,38 @@ def uploaded_file(
     filename
 ):
 
-    if model_type not in MODEL_FILES:
+    if model_type not in MODEL_PATHS:
 
         return redirect(
             url_for("home")
         )
 
-    folder = app.config[
-        "UPLOAD_FOLDERS"
-    ][model_type]
-
     return send_from_directory(
-        folder,
+        app.config[
+            "UPLOAD_FOLDERS"
+        ][model_type],
         filename
     )
+
+
+# ============================================================
+# HEALTH CHECK
+# ============================================================
+
+@app.route("/health")
+def health():
+
+    return jsonify({
+        "status": "ok",
+        "application": "Federated Medical Diagnosis",
+        "kaggle_dataset": KAGGLE_DATASET,
+        "models_available": len(
+            MODEL_PATHS
+        ),
+        "models_loaded_in_memory": len(
+            MODELS
+        )
+    })
 
 
 # ============================================================
@@ -2630,32 +2166,10 @@ def uploaded_file(
     "/api/models/status"
 )
 @login_required
-def models_status():
-
-    result = {}
-
-    for model_type in MODEL_FILES:
-
-        result[model_type] = {
-
-            "downloaded":
-                os.path.exists(
-                    MODEL_PATHS[
-                        model_type
-                    ]
-                ),
-
-            "loaded":
-                model_type in MODELS,
-
-            "filename":
-                MODEL_FILES[
-                    model_type
-                ]
-        }
+def model_status_api():
 
     return jsonify(
-        result
+        get_model_status()
     )
 
 
@@ -2668,9 +2182,7 @@ def not_found(e):
 
     return render_template(
         "error.html",
-
         error="Page not found",
-
         now=datetime.now().strftime(
             "%Y-%m-%d %H:%M:%S"
         )
@@ -2682,9 +2194,7 @@ def server_error(e):
 
     return render_template(
         "error.html",
-
         error="Internal server error",
-
         now=datetime.now().strftime(
             "%Y-%m-%d %H:%M:%S"
         )
@@ -2692,7 +2202,7 @@ def server_error(e):
 
 
 # ============================================================
-# APPLICATION START
+# LOCAL DEVELOPMENT
 # ============================================================
 
 if __name__ == "__main__":
