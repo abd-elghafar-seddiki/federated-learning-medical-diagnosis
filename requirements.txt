@@ -99,3 +99,13 @@ tensorflow
 numpy
 Pillow
 kagglehub
+Flask
+Flask-Bcrypt
+Werkzeug
+numpy
+opencv-python-headless
+h5py
+scikit-learn
+tensorflow
+gunicorn
+kaggle
